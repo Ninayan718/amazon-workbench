@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="亚马逊工作台">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F6F8FB">
+<title>亚马逊工作台</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<style>*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F6F8FB;--card:#FFFFFF;--line:#E4EAF1;
+  --ink:#1B2A3A;--ink2:#5B6B7C;--ink3:#8A98A8;
+  --blue:#185FA5;--blue-bg:#E6F1FB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --amber:#BA7517;--amber-bg:#FAEEDA;
+  --gray:#5F5E5A;--gray-bg:#F1EFE8;
+}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit}
+.app{max-width:1100px;margin:0 auto;padding:0 16px 96px}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 16px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{width:40px;height:40px;flex:none;border-radius:10px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:500;letter-spacing:.5px}
+.brand-txt{min-width:0}
+.brand h1{font-size:18px;font-weight:500;line-height:1.3;white-space:nowrap}
+.brand p{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.period{text-align:right;flex:none}
+.period-label{display:block;font-size:11px;color:var(--ink3)}
+.period-val{display:block;font-size:13px;font-weight:500}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 2px 8px;border:0;background:none;color:var(--ink3);font-size:11px;cursor:pointer}
+.tab svg{width:20px;height:20px}
+.tab.on{color:var(--blue)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.card-h{font-size:14px;font-weight:500;margin-bottom:12px}
+.section-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:14px;font-weight:500;margin:22px 0 10px}
+.section-title small{font-size:12px;font-weight:400;color:var(--ink3)}
+
+.statusbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sb-line{display:flex;align-items:center;gap:8px}
+.sb-name{font-size:14px;font-weight:500}
+.sb-sub{font-size:12px;color:var(--ink3);margin-top:5px}
+.sb-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.ghost{color:var(--ink2)}
+.btn:active{opacity:.75}
+
+.badge{display:inline-block;font-size:11px;line-height:1.6;padding:1px 8px;border-radius:999px;white-space:nowrap;font-weight:400}
+.badge.ready{background:var(--teal-bg);color:var(--teal)}
+.badge.todo{background:var(--gray-bg);color:var(--gray)}
+.badge.demo{background:var(--amber-bg);color:var(--amber)}
+.badge.phase{background:var(--blue-bg);color:var(--blue)}
+
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.k-label{font-size:12px;color:var(--ink2)}
+.k-val{font-size:21px;font-weight:500;letter-spacing:-.5px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-sub{font-size:11px;color:var(--ink3);margin-top:4px}
+
+.mods{display:grid;grid-template-columns:1fr;gap:10px}
+.mod{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;text-align:left;width:100%}
+.mod:hover{border-color:#B5D4F4}
+.mod-ico{width:38px;height:38px;flex:none;border-radius:10px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center}
+.mod-ico svg{width:21px;height:21px}
+.mod-body{flex:1;min-width:0;display:block}
+.mod-name{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mod-sum{font-size:12px;color:var(--ink2);margin-top:4px;display:block}
+.mod-meta{font-size:11px;color:var(--ink3);margin-top:8px;display:block}
+.mod-arrow{color:var(--ink3);font-size:18px;align-self:center;flex:none}
+
+.feed{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.feed:last-child{border-bottom:0;padding-bottom:0}
+.feed:first-child{padding-top:0}
+.dot{width:8px;height:8px;flex:none;border-radius:50%;background:#C8D0DA}
+.dot.ok{background:var(--teal)}
+.feed-name{flex:1;min-width:0;font-size:13px}
+.feed-fmt{font-size:11px;color:var(--ink3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.feed-state{font-size:11px;color:var(--ink3);white-space:nowrap}
+.feed-state.ok{color:var(--teal)}
+.db-note{font-size:12px;color:var(--ink2);background:var(--teal-bg);border-radius:8px;padding:10px 12px;margin-top:12px}
+
+.principle{font-size:12px;color:var(--ink2);padding:9px 0;border-bottom:1px solid var(--line)}
+.principle:last-child{border-bottom:0;padding-bottom:0}
+.principle:first-child{padding-top:0}
+.principle b{font-weight:500;color:var(--ink)}
+
+.page-head{display:flex;align-items:flex-start;gap:12px;margin:6px 0 18px}
+.ph-ico{width:42px;height:42px;flex:none;border-radius:11px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center}
+.ph-ico svg{width:23px;height:23px}
+.ph-title{font-size:18px;font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ph-sub{font-size:12px;color:var(--ink2);margin-top:4px}
+
+.list{list-style:none}
+.list li{position:relative;padding-left:16px;font-size:13px;margin:9px 0}
+.list li:first-child{margin-top:0}
+.list li:last-child{margin-bottom:0}
+.list li::before{content:"";position:absolute;left:1px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--blue)}
+
+.tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.tbl th,.tbl td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+.tbl th{color:var(--ink3);font-weight:400;font-size:11px}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:last-child,.tbl th:last-child{text-align:right;width:64px}
+.tbl .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+
+.engine{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.engine-name{font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border-radius:6px;padding:4px 8px;word-break:break-all}
+.engine-note{font-size:12px;color:var(--ink2);width:100%;margin-top:2px}
+
+.placeholder{border:1px dashed #C8D0DA;border-radius:12px;padding:30px 16px;text-align:center;color:var(--ink3);background:#FBFCFE;margin-bottom:12px}
+.placeholder svg{width:28px;height:28px;color:#B4C2D2}
+.ph-big{font-size:14px;color:var(--ink2);font-weight:500;margin:10px 0 4px}
+.placeholder p{font-size:12px}
+.note{font-size:12px;color:var(--ink2);background:var(--blue-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px}
+.back-btn{width:100%}
+
+#foot{padding:22px 0 6px;text-align:center;font-size:11px;color:var(--ink3);line-height:1.8}
+.toast{position:fixed;left:50%;bottom:88px;transform:translate(-50%,12px);background:#1B2A3A;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40;max-width:88vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(min-width:900px){
+  .app{padding:0 24px 40px}
+  .topbar{padding:28px 0 20px}
+  .tabbar{position:sticky;top:12px;left:auto;right:auto;bottom:auto;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:20px}
+  .tab{flex-direction:row;gap:8px;font-size:13px;padding:10px 16px;border-radius:8px}
+  .tab svg{width:18px;height:18px}
+  .tab.on{background:var(--blue-bg)}
+  .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mods{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .k-val{font-size:23px}
+  .toast{bottom:32px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">AW</div>
+      <div class="brand-txt">
+        <h1>亚马逊工作台</h1>
+        <p>Amazon US · 选品 / Listing / 广告 / 利润</p>
+      </div>
+    </div>
+    <div id="periodBox"></div>
+  </header>
+  <nav class="tabbar" id="tabbar" aria-label="模块导航"></nav>
+  <main id="view"></main>
+  <footer id="foot"></footer>
+</div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status"></div>
+<script>window.AMZ_CONTENT = {
+  storageKey: "amz_workbench_v1",
+  demo: {
+    period: "2026-10",
+    kpi: {
+      asinCount: 12,
+      sales: 48620.50,
+      adSpend: 9237.90,
+      acos: 0.190,
+      profit: 8412.30,
+      margin: 0.173,
+      refundRate: 0.042
+    }
+  },
+  feedDefaults: { settlement: false, ads: false, cost: false },
+  tabs: [
+    { id: "home", label: "总览", icon: "home" },
+    { id: "sourcing", label: "选品", icon: "target" },
+    { id: "listing", label: "Listing", icon: "image" },
+    { id: "ads", label: "广告", icon: "ads" },
+    { id: "profit", label: "利润", icon: "profit" }
+  ],
+  feeds: [
+    { key: "settlement", name: "结算报表", fmt: "Custom Unified Transaction CSV", hint: "Seller Central 导出" },
+    { key: "ads", name: "广告报表", fmt: "推广的商品 XLSX", hint: "Amazon Ads 导出" },
+    { key: "cost", name: "采购成本表", fmt: "成本 XLSX", hint: "人工维护，最易过期" }
+  ],
+  principles: [
+    { t: "主键别混用", d: "MSKU 做利润主键，ASIN 做流量与广告主键，中间建一张变体映射表。" },
+    { t: "成本表单独维护", d: "采购成本是唯一靠人工录入的数据，独立页签并标注更新日期。" },
+    { t: "汇率快照固化", d: "结算按 USD、成本按 CNY，汇率写进当次结果，避免每次打开利润都变。" },
+    { t: "本地算完再上云", d: "浏览器不解析原始报表，本地 Node 脚本产出汇总 JSON，网页只负责展示。" }
+  ],
+  modules: [
+    {
+      id: "sourcing", name: "选品", en: "Sourcing", icon: "target",
+      badge: "待接入", badgeType: "todo", phase: "P1",
+      summary: "竞品与市场验证，把候选品变成可决策的分数",
+      todos: [
+        "候选品清单与市场规模、竞争度速览",
+        "竞品拆解：价格带、评论痛点、卖点缺口",
+        "按预估毛利与推广成本反推是否值得做",
+        "留档结论，回流数据底座供后续环节复用"
+      ],
+      inputs: [
+        { name: "Sorftime 插件导出", fmt: "JSON / CSV", state: "待打通" },
+        { name: "竞品 ASIN 与评论", fmt: "手动 / 抓取", state: "待打通" },
+        { name: "预估头程与采购成本", fmt: "成本表", state: "待打通" }
+      ],
+      engine: { name: "Sorftime + Tampermonkey", ready: false },
+      engineNote: "插件没有 API，靠浏览器浮层展示数据，需先建抓取脚本才能落表。这是 P1 第一件要打通的事。",
+      note: "选品是唯一还没有现成分析引擎的环节，前期不确定性最大，所以排在利润和广告之后。"
+    },
+    {
+      id: "listing", name: "Listing", en: "Listing", icon: "image",
+      badge: "引擎就绪", badgeType: "ready", phase: "P2",
+      summary: "卖点分层、文案与七图位套图，按合规闸门逐张过",
+      todos: [
+        "竞品视觉解构与核心卖点分层",
+        "标题、五点、A+ 文案与关键词布局",
+        "七图位信息架构，一图一主张",
+        "图片合规检查与版本效果对比"
+      ],
+      inputs: [
+        { name: "产品参数与差异化", fmt: "手动录入", state: "待录入" },
+        { name: "竞品 ASIN（1-3 个）", fmt: "手动录入", state: "待录入" },
+        { name: "品牌元素与实拍素材", fmt: "图片文件", state: "可选" }
+      ],
+      engine: { name: "amazon-listing-visual-studio", ready: true },
+      engineNote: "已安装，可直接产出视觉策略、七图位架构与出图提示词；图片生成按次消耗额度，无月费。",
+      note: "Listing 产出以文件为主，工作台这里只做索引与版本记录，不把图片塞进本地存储。"
+    },
+    {
+      id: "ads", name: "广告", en: "PPC", icon: "ads",
+      badge: "引擎就绪", badgeType: "ready", phase: "P1",
+      summary: "搜索词报告诊断，产出否定词与竞价调整清单",
+      todos: [
+        "搜索词报告清洗：高花费零转化词识别",
+        "否定关键词库（Exact / Phrase）生成",
+        "按目标 ACOS 反推竞价与预算分配",
+        "调整清单回写，跟踪下一周期变化"
+      ],
+      inputs: [
+        { name: "搜索词报告", fmt: "XLSX", state: "已有文件" },
+        { name: "推广的商品报告", fmt: "XLSX", state: "已有文件" },
+        { name: "目标 ACOS 与日预算", fmt: "手动录入", state: "待录入" }
+      ],
+      engine: { name: "amazon-ppc-campaign", ready: true },
+      engineNote: "已安装，支持从零搭建广告结构（模式 A）与审视现有广告（模式 B）。",
+      note: "广告结论必须和利润模块的 MSKU 口径对齐，否则会出现「ACOS 降了但利润没涨」。"
+    },
+    {
+      id: "profit", name: "利润", en: "Profit", icon: "profit",
+      badge: "引擎就绪", badgeType: "ready", phase: "P0",
+      summary: "三表合并按 MSKU 算真实毛利，是全工作台的对账基准",
+      todos: [
+        "结算 + 广告 + 采购成本三表按 MSKU 合并",
+        "逐 SKU 销售额、退款率、ACOS、毛利拆解",
+        "异常 ACOS / 退款 / 低毛利自动预警",
+        "汇总结果供总览 KPI 与下一轮选品使用"
+      ],
+      inputs: [
+        { name: "Custom Unified Transaction", fmt: "CSV", state: "已有文件" },
+        { name: "推广的商品报告", fmt: "XLSX", state: "已有文件" },
+        { name: "采购成本（含头程）", fmt: "XLSX", state: "已有文件" }
+      ],
+      engine: { name: "amazon-profit-analyzer", ready: true },
+      engineNote: "已安装，三份文件即可输出按 MSKU 的结构化利润报告，是 P0 要接进来的第一块。",
+      note: "利润是数据最齐、能立刻算准的一环。三份报表都齐，下一版可以直接跑真实数据。"
+    }
+  ]
+};
+</script>
+<script>(function () {
+  "use strict";
+
+  var C = window.AMZ_CONTENT;
+  var KEY = C.storageKey;
+  var tabs = C.tabs;
+  var modules = C.modules;
+  var curTab = "home";
+  var toastTimer = null;
+
+  function $(s) { return document.querySelector(s); }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function icon(n) {
+    var p = {
+      home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>',
+      target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
+      image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m4 17 5-5 3.5 3.5L16 12l4 4"/>',
+      ads: '<path d="M3 17 9 11l4 4 8-8"/><path d="M16 7h5v5"/>',
+      profit: '<path d="M4 20v-9"/><path d="M10 20V5"/><path d="M16 20v-6"/><path d="M2 20h20"/>',
+      db: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[n] || "") + "</svg>";
+  }
+
+  function money(n) {
+    return "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function pct(n) { return (Number(n || 0) * 100).toFixed(1) + "%"; }
+  function num(n) { return Number(n || 0).toLocaleString("en-US"); }
+  function validTab(id) {
+    for (var i = 0; i < tabs.length; i++) { if (tabs[i].id === id) return true; }
+    return false;
+  }
+  function findModule(id) {
+    for (var i = 0; i < modules.length; i++) { if (modules[i].id === id) return modules[i]; }
+    return modules[0];
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      return (d && d.source === "imported") ? d : null;
+    } catch (e) { return null; }
+  }
+  function save(d) {
+    try { localStorage.setItem(KEY, JSON.stringify(d)); return true; }
+    catch (e) { toast("记录不会保存：本地存储不可用"); return false; }
+  }
+  function clearData() { try { localStorage.removeItem(KEY); } catch (e) {} }
+
+  function state() {
+    var d = load();
+    if (d) {
+      var kpi = {}, base = C.demo.kpi, k;
+      for (k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) kpi[k] = base[k]; }
+      if (d.kpi && typeof d.kpi === "object") {
+        for (k in d.kpi) { if (Object.prototype.hasOwnProperty.call(d.kpi, k) && isFinite(Number(d.kpi[k]))) kpi[k] = Number(d.kpi[k]); }
+      }
+      var feeds = {}, f;
+      for (f in C.feedDefaults) { if (Object.prototype.hasOwnProperty.call(C.feedDefaults, f)) feeds[f] = !!C.feedDefaults[f]; }
+      if (d.feeds && typeof d.feeds === "object") {
+        for (f in d.feeds) { if (Object.prototype.hasOwnProperty.call(d.feeds, f)) feeds[f] = !!d.feeds[f]; }
+      }
+      return {
+        demo: false,
+        period: d.period || C.demo.period,
+        updatedAt: d.updatedAt || "",
+        kpi: kpi,
+        feeds: feeds
+      };
+    }
+    return { demo: true, period: C.demo.period, updatedAt: "", kpi: C.demo.kpi, feeds: C.feedDefaults };
+  }
+
+  function toast(msg) {
+    var t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2800);
+  }
+
+  function kpiCard(label, val, sub) {
+    return '<div class="kpi"><div class="k-label">' + label + '</div><div class="k-val">' + val + '</div><div class="k-sub">' + sub + "</div></div>";
+  }
+
+  function renderTop(st) {
+    $("#periodBox").innerHTML = '<div class="period"><span class="period-label">账期</span><span class="period-val">' + esc(st.period) + "</span></div>";
+  }
+
+  function renderTabbar() {
+    $("#tabbar").innerHTML = tabs.map(function (t) {
+      return '<button class="tab' + (t.id === curTab ? " on" : "") + '" type="button" data-tab="' + t.id + '">' + icon(t.icon) + "<span>" + esc(t.label) + "</span></button>";
+    }).join("");
+  }
+
+  function renderHome(st) {
+    var k = st.kpi;
+    var badge = st.demo
+      ? '<span class="badge demo">演示数据</span>'
+      : '<span class="badge ready">result.json</span>';
+    var upd = st.demo ? "尚未导入本地计算结果 · 当前为框架演示值" : ("更新于 " + esc(st.updatedAt || "未知时间"));
+
+    var h = "";
+    h += '<div class="card statusbar">';
+    h += '<div><div class="sb-line">' + badge + '<span class="sb-name">数据状态</span></div><div class="sb-sub">' + upd + "</div></div>";
+    h += '<div class="sb-actions"><button class="btn primary" type="button" data-act="import">导入 result.json</button>';
+    if (!st.demo) h += '<button class="btn ghost" type="button" data-act="clear">清除</button>';
+    h += "</div></div>";
+
+    h += '<div class="section-title">本期经营快照 <small>USD · ' + esc(st.period) + "</small></div>";
+    h += '<div class="kpis">';
+    h += kpiCard("销售额", money(k.sales), num(k.asinCount) + " 个在售 ASIN");
+    h += kpiCard("广告花费", money(k.adSpend), "ACOS " + pct(k.acos));
+    h += kpiCard("净利润", money(k.profit), "毛利率 " + pct(k.margin));
+    h += kpiCard("退款率", pct(k.refundRate), "结算口径 · 按 MSKU");
+    h += "</div>";
+
+    h += '<div class="section-title">四个环节 <small>点卡片进入模块</small></div><div class="mods">';
+    h += modules.map(function (m) {
+      return '<button class="mod" type="button" data-tab="' + m.id + '">' +
+        '<span class="mod-ico">' + icon(m.icon) + "</span>" +
+        '<span class="mod-body">' +
+          '<span class="mod-name">' + esc(m.name) +
+            ' <span class="badge ' + m.badgeType + '">' + esc(m.badge) + "</span>" +
+            ' <span class="badge phase">' + esc(m.phase) + "</span>" +
+          "</span>" +
+          '<span class="mod-sum">' + esc(m.summary) + "</span>" +
+          '<span class="mod-meta">' + (m.engine.ready ? "引擎已就绪 · " : "引擎待建 · ") + esc(m.engine.name) + "</span>" +
+        "</span>" +
+        '<span class="mod-arrow">›</span>' +
+      "</button>";
+    }).join("");
+    h += "</div>";
+
+    h += '<div class="section-title">统一数据底座 <small>ASIN / MSKU 主键</small></div>';
+    h += '<div class="card">';
+    h += C.feeds.map(function (f) {
+      var ok = !!st.feeds[f.key];
+      return '<div class="feed"><span class="dot' + (ok ? " ok" : "") + '"></span>' +
+        '<span class="feed-name">' + esc(f.name) + '<br><span class="feed-fmt">' + esc(f.fmt) + "</span></span>" +
+        '<span class="feed-state' + (ok ? " ok" : "") + '">' + (ok ? "已接入" : "待导入") + "</span></div>";
+    }).join("");
+    h += '<div class="db-note">三份文件由本地 Node 脚本合并计算，产出 result.json；网页只导入汇总结果，不解析原始报表。</div>';
+    h += "</div>";
+
+    h += '<div class="section-title">四条约定 <small>动手前先定好</small></div><div class="card">';
+    h += C.principles.map(function (p) {
+      return '<div class="principle"><b>' + esc(p.t) + "</b> · " + esc(p.d) + "</div>";
+    }).join("");
+    h += "</div>";
+    return h;
+  }
+
+  function renderModule(id, st) {
+    var m = findModule(id);
+    var h = "";
+    h += '<div class="page-head"><span class="ph-ico">' + icon(m.icon) + "</span><div>" +
+      '<div class="ph-title">' + esc(m.name) +
+        ' <span class="badge ' + m.badgeType + '">' + esc(m.badge) + "</span>" +
+        ' <span class="badge phase">' + esc(m.phase) + " 阶段</span></div>" +
+      '<div class="ph-sub">' + esc(m.summary) + "</div></div></div>";
+
+    h += '<div class="card"><div class="card-h">这一块会做什么</div><ul class="list">';
+    h += m.todos.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+    h += "</ul></div>";
+
+    h += '<div class="card"><div class="card-h">需要的数据</div><table class="tbl"><thead><tr><th>数据源</th><th>格式</th><th>状态</th></tr></thead><tbody>';
+    h += m.inputs.map(function (i) {
+      return "<tr><td>" + esc(i.name) + '</td><td class="mono">' + esc(i.fmt) + "</td><td>" + esc(i.state) + "</td></tr>";
+    }).join("");
+    h += "</tbody></table></div>";
+
+    h += '<div class="card"><div class="card-h">分析引擎</div><div class="engine">' +
+      '<span class="engine-name">' + esc(m.engine.name) + "</span>" +
+      '<span class="badge ' + (m.engine.ready ? "ready" : "todo") + '">' + (m.engine.ready ? "已就绪" : "待建") + "</span>" +
+      '<span class="engine-note">' + esc(m.engineNote) + "</span></div></div>";
+
+    h += '<div class="placeholder">' + icon(m.icon) +
+      '<div class="ph-big">' + esc(m.name) + " 模块内容区</div>" +
+      "<p>框架版先占位，实际图表与清单在 " + esc(m.phase) + " 阶段填充</p></div>";
+
+    h += '<div class="note">' + esc(m.note) + "</div>";
+    h += '<button class="btn back-btn" type="button" data-tab="home">返回总览</button>';
+    return h;
+  }
+
+  function renderFoot() {
+    $("#foot").innerHTML = "亚马逊工作台 · 框架版 v0.1<br>本地计算，数据留在本机 · 无服务器 / 无订阅 / 零依赖";
+  }
+
+  function renderAll() {
+    var st = state();
+    renderTop(st);
+    renderTabbar();
+    $("#view").innerHTML = (curTab === "home") ? renderHome(st) : renderModule(curTab, st);
+    renderFoot();
+  }
+
+  function go(id) {
+    if (!validTab(id)) return;
+    curTab = id;
+    try { history.replaceState(null, "", "#" + id); } catch (e) { location.hash = id; }
+    renderAll();
+    window.scrollTo(0, 0);
+  }
+
+  document.addEventListener("click", function (e) {
+    var tabEl = e.target.closest ? e.target.closest("[data-tab]") : null;
+    if (tabEl) { go(tabEl.getAttribute("data-tab")); return; }
+    var actEl = e.target.closest ? e.target.closest("[data-act]") : null;
+    if (!actEl) return;
+    var act = actEl.getAttribute("data-act");
+    if (act === "import") { $("#fileInput").click(); }
+    if (act === "clear") { clearData(); toast("已清除，回到演示数据"); renderAll(); }
+  });
+
+  $("#fileInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var d = JSON.parse(r.result);
+        if (!d || typeof d !== "object" || Array.isArray(d)) throw new Error("bad shape");
+        d.source = "imported";
+        if (!d.updatedAt) d.updatedAt = new Date().toLocaleString("zh-CN", { hour12: false });
+        if (save(d)) { toast("已载入 result.json · 框架版仅展示汇总 KPI"); renderAll(); }
+      } catch (err) {
+        toast("解析失败：请选择本地脚本产出的 JSON 文件");
+      }
+    };
+    r.onerror = function () { toast("文件读取失败"); };
+    r.readAsText(f);
+    e.target.value = "";
+  });
+
+  window.addEventListener("hashchange", function () {
+    var id = location.hash.slice(1);
+    if (validTab(id) && id !== curTab) { curTab = id; renderAll(); }
+  });
+
+  var initial = location.hash.slice(1);
+  if (validTab(initial)) curTab = initial;
+  renderAll();
+})();
+</script>
+</body>
+</html>
