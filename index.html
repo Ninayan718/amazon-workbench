@@ -166,6 +166,7 @@ button:disabled{cursor:default;opacity:.6}
 .modname{font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .modsum{font-size:12px;color:var(--text-2);line-height:1.6}
 .modmeta{font-size:11px;color:var(--text-3)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
 @media (max-width:760px){
   .shell{padding:0 14px 32px}
   .topbar{gap:10px;padding:12px 0 10px;margin-bottom:16px}
@@ -827,7 +828,7 @@ const CONTENT = {
   /* ---------- UI 状态 ---------- */
   const UI = {
     tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know',
-    calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '',
+    calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '', calcFormulaOpen: false,
     form: {
       opsText: '', opsType: { opt: '广告', src: '看品' }, opsMinutes: '25', opsWatch: false,
       knowText: '', knowCat: '广告', knowMinutes: '25', knowRule: false,
@@ -1551,6 +1552,35 @@ const CONTENT = {
           { label: '全口径到手', value: '¥' + Math.round(s.profitCny).toLocaleString('zh-CN') }
         ]);
     }
+    /* 核算口径说明（可折叠） */
+    h += '<div class="collapse" style="margin-top:12px"><button class="collapse-head" data-act="calc-formula-toggle">' +
+      (UI.calcFormulaOpen ? '▾ 收起核算口径说明' : '▸ 核算口径：公式与符号约定（点开看为什么这样算）') + '</button>';
+    if (UI.calcFormulaOpen) {
+      h += '<div class="collapse-body">' +
+        '<div class="hint" style="color:var(--text)"><b>一、13 项结算字段，带符号直接相加</b><br>' +
+        '订单利润 = 下列 13 列按报表原值（含正负号）相加 × 汇率 − 采购成本 − 空运头程：<br>' +
+        '<span class="mono" style="display:block;margin-top:6px;line-height:1.9">' +
+        'product sales + product sales tax + shipping credits + shipping credits tax<br>' +
+        '+ gift wrap credits + giftwrap credits tax + Regulatory Fee + Tax On Regulatory Fee<br>' +
+        '+ promotional rebates + promotional rebates tax + marketplace withheld tax<br>' +
+        '+ selling fees + fba fees</span></div>' +
+        '<div class="hint"><b>为什么是「加」不是「减」？</b> 亚马逊把费用列写成负数（selling fees −6.00、fba fees −5.64、促销折扣 −3.00），' +
+        '所以公式里写成 −X 的项，直接加上它的负值就是扣减。按字面「收入 − 费用绝对值」会算错。<br>' +
+        '检验：以 11/1 一笔 $39.99 订单为例，带符号相加 = 39.99 + 3.56 − 3.56 − 6.00 − 5.64 = <b>28.35</b>，' +
+        '正好等于报表 total 列。全部 24 笔订单逐笔核对，13 字段带符号和与 total 零误差。</div>' +
+        '<div class="hint"><b>二、毛利润 → 净利润</b><br>' +
+        '订单利润（毛利润）= 13 项带符号和 × 汇率 − 件数×成本 − 件数×头程<br>' +
+        '全口径净利润 = (13 项带符号和 + 非订单费用净额) × 汇率 − 成本 − 头程。<br>' +
+        '非订单费用同样带符号相加：Vine 费 −75、订阅 −39.99、仓储 −33.08 自然是扣减；FBA 赔付 +20.16 是正数，自然加回。</div>' +
+        '<div class="hint"><b>三、Debt 不计入</b><br>' +
+        'type 为 Debt / Transfer / Payment / Payout 的行是提现，既不算收入也不算费用，已排除。' +
+        '本报表里那笔 +230.60 的 Debt 未进任何利润计算。</div>' +
+        '<div class="hint"><b>四、谁进「订单利润」、谁进「全口径到手」</b><br>' +
+        '送入每日记录的是<b>订单利润</b>（不含月固定费），保证每天是正数、可对比；' +
+        '月目标进度再减去月固定成本（Vine / 仓储 / 订阅等）得到真实到手，避免进度条虚高。</div>' +
+        '</div>';
+    }
+    h += '</div>';
     h += '</div>';
     return h;
   }
@@ -2023,6 +2053,7 @@ const CONTENT = {
       case 'calc-pick-csv': document.getElementById('calcCsvFile').click(); break;
       case 'calc-pick-cost': document.getElementById('calcCostFile').click(); break;
       case 'calc-run': runCalc(); break;
+      case 'calc-formula-toggle': UI.calcFormulaOpen = !UI.calcFormulaOpen; renderAll(); break;
       case 'calc-send': sendProfitToDaily(); break;
       case 'calc-clear': {
         if (window.confirm('清除核算结果？每日记录不受影响。')) {
