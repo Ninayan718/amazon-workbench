@@ -1,0 +1,21 @@
+{
+  "name": "亚马逊工作台",
+  "short_name": "工作台",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FBFAF8",
+  "theme_color": "#FBFAF8",
+  "description": "单干卖家的经营与反馈工作台",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
