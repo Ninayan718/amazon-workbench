@@ -127,6 +127,19 @@ button{font-family:inherit}
 .note{font-size:12px;color:var(--ink2);background:var(--blue-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px}
 .back-btn{width:100%}
 
+.calc-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.calc-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.calc-lab{font-size:12px;color:var(--ink2)}
+.calc-file{font-size:12px;color:var(--teal);background:var(--teal-bg);border-radius:6px;padding:7px 9px;word-break:break-all}
+.calc-input{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;width:100%;background:var(--card);color:var(--ink)}
+.calc-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.calc-hint{font-size:11px;color:var(--ink3);flex:1;min-width:180px}
+.tbl.wide th:last-child,.tbl.wide td:last-child{width:auto;text-align:right}
+.tbl.wide td{white-space:nowrap;font-size:11px}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.tbl-wrap .tbl.wide{min-width:560px}
+@media(min-width:900px){.calc-grid{grid-template-columns:1fr 1fr 0.8fr}}
+
 #foot{padding:22px 0 6px;text-align:center;font-size:11px;color:var(--ink3);line-height:1.8}
 .toast{position:fixed;left:50%;bottom:88px;transform:translate(-50%,12px);background:#1B2A3A;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40;max-width:88vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -162,7 +175,393 @@ button{font-family:inherit}
   <footer id="foot"></footer>
 </div>
 <input type="file" id="fileInput" accept=".json,application/json" hidden>
+<input type="file" id="csvInput" accept=".csv,text/csv" hidden>
+<input type="file" id="costInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
 <div class="toast" id="toast" role="status"></div>
+<script>/* 利润核算引擎（纯前端、零依赖）
+   在浏览器里解析 Custom Unified Transaction CSV + 成本 XLSX，
+   按 amazon-profit-analyzer v0.2.0 官方口径算按天/按 MSKU 的真实利润。
+   XLSX 用纯 JS raw DEFLATE 解压（不依赖 DecompressionStream），全浏览器可用。 */
+(function (global) {
+  "use strict";
+
+  /* ---------------- 纯 JS raw DEFLATE (puff) ---------------- */
+  var LBASE = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+  var LEXT  = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  var DBASE = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+  var DEXT  = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  var CORDER = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+
+  function Bits(src) { this.src = src; this.pos = 0; this.buf = 0; this.cnt = 0; }
+  Bits.prototype.bits = function (n) {
+    var b = this.buf, c = this.cnt, p = this.pos, s = this.src, pow = Math.pow;
+    while (c < n) { b += s[p++] * pow(2, c); c += 8; }
+    this.buf = b; this.cnt = c; this.pos = p;
+    var v = b % pow(2, n);
+    this.buf = Math.floor(b / pow(2, n)); this.cnt = c - n;
+    return v;
+  };
+  function buildTree(lengths) {
+    /* lengths[n] = 第 n 个符号的码长 -> canonical counts + symbol 表 */
+    var counts = new Array(16), n, len;
+    for (len = 0; len < 16; len++) counts[len] = 0;
+    for (n = 0; n < lengths.length; n++) if (lengths[n]) counts[lengths[n]]++;
+    counts[0] = 0; /* 码长 0 的符号不参与 canonical 编码，puff 也会清零 */
+    var offs = [], total = 0;
+    offs[0] = 0;
+    for (len = 1; len < 16; len++) { total += counts[len - 1]; offs[len] = total; }
+    var symbol = new Array(total + counts[15]);
+    for (n = 0; n < lengths.length; n++) {
+      var L = lengths[n];
+      if (L) symbol[offs[L]++] = n;
+    }
+    return { counts: counts, symbol: symbol };
+  }
+  function decodeSym(br, tree) {
+    var code = 0, first = 0, index = 0, len, counts = tree.counts, sym = tree.symbol;
+    for (len = 1; len < 16; len++) {
+      code |= br.bits(1);
+      var count = counts[len];
+      if (code - count < first) return sym[index + (code - first)];
+      index += count; first = (first + count) << 1; code <<= 1;
+    }
+    throw new Error("Huffman 解码失败");
+  }
+  function fixedTrees() {
+    var lc = new Array(288), i;
+    for (i = 0; i < 144; i++) lc[i] = 8;
+    for (; i < 256; i++) lc[i] = 9;
+    for (; i < 280; i++) lc[i] = 7;
+    for (; i < 288; i++) lc[i] = 8;
+    var dc = new Array(30); for (i = 0; i < 30; i++) dc[i] = 5;
+    return { lit: buildTree(lc), dist: buildTree(dc) };
+  }
+  function dynamicTrees(br) {
+    var hlit = br.bits(5) + 257, hdist = br.bits(5) + 1, hclen = br.bits(4) + 4;
+    var cl = new Array(19), i;
+    for (i = 0; i < 19; i++) cl[i] = 0;
+    for (i = 0; i < hclen; i++) cl[CORDER[i]] = br.bits(3);
+    var clTree = buildTree(cl);
+    var lengths = [], code;
+    while (lengths.length < hlit + hdist) {
+      code = decodeSym(br, clTree);
+      if (code < 16) lengths.push(code);
+      else if (code === 16) {
+        if (!lengths.length) throw new Error("重复长度无前值");
+        var r = br.bits(2) + 3, last = lengths[lengths.length - 1];
+        for (i = 0; i < r; i++) lengths.push(last);
+      } else if (code === 17) {
+        r = br.bits(3) + 3;
+        for (i = 0; i < r; i++) lengths.push(0);
+      } else {
+        r = br.bits(7) + 11;
+        for (i = 0; i < r; i++) lengths.push(0);
+      }
+    }
+    return {
+      lit: buildTree(lengths.slice(0, hlit)),
+      dist: buildTree(lengths.slice(hlit, hlit + hdist))
+    };
+  }
+  function inflateRaw(src) {
+    var br = new Bits(src), out = new Uint8Array(Math.max(1024, src.length * 4)), outLen = 0, final = 0, type;
+    function ensure(n) {
+      if (outLen + n <= out.length) return;
+      var bigger = new Uint8Array(Math.max(out.length * 2, outLen + n));
+      bigger.set(out); out = bigger;
+    }
+    while (!final) {
+      final = br.bits(1); type = br.bits(2);
+      if (type === 0) {
+        br.buf = 0; br.cnt = 0;
+        var len = src[br.pos++] | (src[br.pos++] << 8);
+        var nlen = src[br.pos++] | (src[br.pos++] << 8);
+        if ((len ^ 0xffff) !== nlen) throw new Error("stored 块长度校验失败");
+        ensure(len);
+        for (var i = 0; i < len; i++) out[outLen++] = src[br.pos++];
+      } else if (type === 1 || type === 2) {
+        var trees = type === 1 ? fixedTrees() : dynamicTrees(br);
+        while (true) {
+          var sym = decodeSym(br, trees.lit);
+          if (sym < 256) { ensure(1); out[outLen++] = sym; }
+          else if (sym === 256) break;
+          else {
+            var li = sym - 257;
+            if (li < 0 || li >= LBASE.length) throw new Error("非法长度符号");
+            var length = LBASE[li] + br.bits(LEXT[li]);
+            var dsym = decodeSym(br, trees.dist);
+            if (dsym >= DBASE.length) throw new Error("非法距离符号");
+            var dist = DBASE[dsym] + br.bits(DEXT[dsym]);
+            if (dist > outLen) throw new Error("距离越界");
+            ensure(length);
+            for (var k = 0; k < length; k++) { out[outLen] = out[outLen - dist]; outLen++; }
+          }
+        }
+      } else throw new Error("非法压缩块类型");
+    }
+    return out.subarray(0, outLen);
+  }
+
+  /* ---------------- ZIP 解析 ---------------- */
+  function findEOCD(u8) {
+    var start = Math.max(0, u8.length - 65557);
+    for (var i = u8.length - 22; i >= start; i--) {
+      if (u8[i] === 0x50 && u8[i+1] === 0x4b && u8[i+2] === 0x05 && u8[i+3] === 0x06) return i;
+    }
+    return -1;
+  }
+  function unzip(buffer) {
+    var u8 = new Uint8Array(buffer), dv = new DataView(buffer);
+    var eocd = findEOCD(u8);
+    if (eocd < 0) throw new Error("不是有效的 zip/xlsx 文件");
+    var count = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true), files = {};
+    for (var n = 0; n < count; n++) {
+      if (dv.getUint32(off, true) !== 0x02014b50) throw new Error("中央目录损坏");
+      var method = dv.getUint16(off + 10, true);
+      var csize = dv.getUint32(off + 20, true);
+      var nameLen = dv.getUint16(off + 28, true);
+      var extraLen = dv.getUint16(off + 30, true);
+      var commentLen = dv.getUint16(off + 32, true);
+      var localOff = dv.getUint32(off + 42, true);
+      var nameBytes = u8.subarray(off + 46, off + 46 + nameLen);
+      var name = "";
+      for (var j = 0; j < nameBytes.length; j++) name += String.fromCharCode(nameBytes[j]);
+      if (dv.getUint32(localOff, true) !== 0x04034b50) throw new Error("local header 损坏");
+      var lnLen = dv.getUint16(localOff + 26, true), lxLen = dv.getUint16(localOff + 28, true);
+      var dataStart = localOff + 30 + lnLen + lxLen;
+      var raw = u8.subarray(dataStart, dataStart + csize);
+      var content;
+      if (method === 0) content = raw;
+      else if (method === 8) content = inflateRaw(raw);
+      else throw new Error("不支持的压缩方法 " + method);
+      files[name] = content;
+      off += 46 + nameLen + extraLen + commentLen;
+    }
+    return files;
+  }
+  function utf8Decode(u8) {
+    if (typeof TextDecoder !== "undefined") return new TextDecoder("utf-8").decode(u8);
+    var s = "", i = 0, c, c2, c3;
+    while (i < u8.length) {
+      c = u8[i++];
+      if (c < 128) s += String.fromCharCode(c);
+      else if (c < 224) { c2 = u8[i++]; s += String.fromCharCode(((c & 31) << 6) | (c2 & 63)); }
+      else { c2 = u8[i++]; c3 = u8[i++]; s += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63)); }
+    }
+    return s;
+  }
+  function xmlNodes(doc, localName) {
+    return doc.getElementsByTagNameNS ? doc.getElementsByTagNameNS("*", localName) : doc.getElementsByTagName(localName);
+  }
+  function colIndex(ref) {
+    var m = /^([A-Z]+)/.exec(ref || "");
+    if (!m) return -1;
+    var s = m[1], n = 0;
+    for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+    return n - 1;
+  }
+
+  /* ---------------- XLSX：成本表 -> 二维数组 ---------------- */
+  function parseXlsxRows(buffer) {
+    var files = unzip(buffer);
+    var shared = [];
+    if (files["xl/sharedStrings.xml"]) {
+      var sdoc = new DOMParser().parseFromString(utf8Decode(files["xl/sharedStrings.xml"]), "application/xml");
+      var sis = xmlNodes(sdoc, "si");
+      for (var i = 0; i < sis.length; i++) {
+        var ts = xmlNodes(sis[i], "t"), txt = "";
+        for (var k = 0; k < ts.length; k++) txt += (ts[k].textContent || "");
+        shared.push(txt);
+      }
+    }
+    var sheetName = null, keys = Object.keys(files);
+    for (var q = 0; q < keys.length; q++) if (/^xl\/worksheets\/sheet\d+\.xml$/.test(keys[q])) { sheetName = keys[q]; break; }
+    if (!sheetName) throw new Error("xlsx 里找不到工作表");
+    var doc = new DOMParser().parseFromString(utf8Decode(files[sheetName]), "application/xml");
+    var rows = xmlNodes(doc, "row"), result = [];
+    for (var r = 0; r < rows.length; r++) {
+      var cells = xmlNodes(rows[r], "c"), arr = [];
+      for (var c = 0; c < cells.length; c++) {
+        var cell = cells[c], idx = colIndex(cell.getAttribute("r"));
+        if (idx < 0) continue;
+        var t = cell.getAttribute("t"), val = "";
+        if (t === "inlineStr") {
+          var its = xmlNodes(cell, "t");
+          for (var z = 0; z < its.length; z++) val += (its[z].textContent || "");
+        } else {
+          var vNodes = xmlNodes(cell, "v");
+          val = vNodes.length ? (vNodes[0].textContent || "") : "";
+          if (t === "s" && val !== "") val = shared[Number(val)] || "";
+        }
+        while (arr.length < idx) arr.push("");
+        arr[idx] = val;
+      }
+      result.push(arr);
+    }
+    return result;
+  }
+
+  /* ---------------- CSV 解析（支持引号与逗号） ---------------- */
+  function parseCSV(text) {
+    var rows = [], row = [], field = "", i = 0, inQ = false;
+    text = text.replace(/^\uFEFF/, "");
+    while (i < text.length) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i+1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQ = true; i++; continue; }
+      if (ch === ",") { row.push(field); field = ""; i++; continue; }
+      if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+      if (ch === "\r") { i++; continue; }
+      field += ch; i++;
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  /* ---------------- 业务口径 ---------------- */
+  var ORDER_FIELDS = [
+    "product sales", "product sales tax", "shipping credits", "shipping credits tax",
+    "gift wrap credits", "giftwrap credits tax", "Regulatory Fee", "Tax On Regulatory Fee",
+    "promotional rebates", "promotional rebates tax", "marketplace withheld tax",
+    "selling fees", "fba fees"
+  ];
+  var MONTHS = { Jan:1, Feb:2, Mar:3, Apr:4, May:5, Jun:6, Jul:7, Aug:8, Sep:9, Oct:10, Nov:11, Dec:12 };
+  function parseDate(s) {
+    s = String(s || "").trim().replace(/,/g, "");
+    var p = s.split(/\s+/);
+    if (p.length >= 3 && MONTHS[p[0]] && /^\d+$/.test(p[1]) && /^\d{4}$/.test(p[2])) {
+      return p[2] + "-" + ("0" + MONTHS[p[0]]).slice(-2) + "-" + ("0" + Number(p[1])).slice(-2);
+    }
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return null;
+  }
+  function num(v) {
+    var n = parseFloat(String(v == null ? "" : v).replace(/[$,\s]/g, ""));
+    return isNaN(n) ? 0 : n;
+  }
+  function r2(n) { return Math.round(n * 100) / 100; }
+
+  function parseCostRows(rows) {
+    var header = rows[0] || [], hidx = {};
+    for (var i = 0; i < header.length; i++) hidx[String(header[i]).trim()] = i;
+    var skuC = hidx["sku"], costC = hidx["成本"], airC = hidx["空运头程"];
+    if (skuC === undefined || costC === undefined) throw new Error("成本表需有 sku / 成本 两列");
+    var map = {}, dup = 0;
+    for (var r = 1; r < rows.length; r++) {
+      var row = rows[r], sku = String(row[skuC] || "").trim();
+      if (!sku || sku.toLowerCase() === "sku" || sku === "合计") continue;
+      if (map[sku]) dup++;
+      map[sku] = { unit: num(row[costC]), air: airC === undefined ? 0 : num(row[airC]) };
+    }
+    return { map: map, count: Object.keys(map).length, dup: dup };
+  }
+
+  function analyze(csvText, costRows, fx) {
+    var costs = parseCostRows(costRows);
+    var lines = parseCSV(csvText);
+    var headerIdx = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].indexOf("date/time") >= 0 && lines[i].indexOf("total") >= 0) { headerIdx = i; break; }
+    }
+    if (headerIdx < 0) throw new Error("CSV 里找不到 date/time / total 表头行");
+    var header = lines[headerIdx], hidx = {};
+    for (var h = 0; h < header.length; h++) hidx[header[h].trim()] = h;
+    function cell(row, name) { var idx = hidx[name]; return idx === undefined ? "" : (row[idx] || ""); }
+
+    var daily = {}, skuAgg = {}, missingCost = {}, otherRows = [], transfers = [];
+    for (var r = headerIdx + 1; r < lines.length; r++) {
+      var row = lines[r];
+      if (!row || row.length < 3) continue;
+      var date = parseDate(cell(row, "date/time"));
+      if (!date) continue;
+      var type = cell(row, "type").trim(), desc = cell(row, "description").trim();
+      var total = num(cell(row, "total"));
+      if (!daily[date]) daily[date] = {
+        date: date, orders: 0, refunds: 0, units: 0, grossUsd: 0, settleUsd: 0,
+        costCny: 0, freightCny: 0, otherUsd: 0, adUsd: 0
+      };
+      var d = daily[date];
+      if (type === "Order" || type === "Refund") {
+        var sub = 0;
+        for (var f = 0; f < ORDER_FIELDS.length; f++) sub += num(cell(row, ORDER_FIELDS[f]));
+        d.settleUsd += sub;
+        d.grossUsd += num(cell(row, "product sales"));
+        var sku = cell(row, "sku").trim(), qty = Math.round(num(cell(row, "quantity")));
+        if (type === "Order") { d.orders++; d.units += qty; } else { d.refunds++; d.units -= qty; }
+        var c = costs.map[sku];
+        if (c) {
+          d.costCny += qty * c.unit; d.freightCny += qty * c.air;
+          if (!skuAgg[sku]) skuAgg[sku] = { sku: sku, units: 0, settleUsd: 0, costCny: 0, freightCny: 0 };
+          skuAgg[sku].units += qty; skuAgg[sku].settleUsd += sub;
+          skuAgg[sku].costCny += qty * c.unit; skuAgg[sku].freightCny += qty * c.air;
+        } else if (sku) missingCost[sku] = true;
+      } else {
+        if (type === "Debt" || type === "Transfer" || type === "Payment" || type === "Payout") {
+          transfers.push({ date: date, type: type, desc: desc, usd: total }); continue;
+        }
+        d.otherUsd += total;
+        if (/advertis/i.test(desc)) d.adUsd += total;
+        otherRows.push({ date: date, type: type, desc: desc, usd: total });
+      }
+    }
+
+    var days = [], totalOrders = 0, totalSettle = 0, totalOther = 0, totalAd = 0;
+    var totalCost = 0, totalFreight = 0, totalGross = 0;
+    Object.keys(daily).sort().forEach(function (date) {
+      var d = daily[date];
+      var orderProfit = r2(d.settleUsd * fx - d.costCny - d.freightCny);
+      var profit = r2((d.settleUsd + d.otherUsd) * fx - d.costCny - d.freightCny);
+      days.push({
+        date: date, orders: d.orders, refunds: d.refunds, units: d.units,
+        grossUsd: r2(d.grossUsd), settleUsd: r2(d.settleUsd), otherUsd: r2(d.otherUsd),
+        adUsd: r2(d.adUsd), costCny: r2(d.costCny), freightCny: r2(d.freightCny),
+        orderProfitCny: orderProfit, profitCny: profit,
+        profitPerOrder: d.orders ? r2(profit / d.orders) : null,
+        aovUsd: d.orders ? r2(d.settleUsd / d.orders) : 0
+      });
+      totalOrders += d.orders; totalSettle += d.settleUsd; totalOther += d.otherUsd;
+      totalAd += d.adUsd; totalCost += d.costCny; totalFreight += d.freightCny; totalGross += d.grossUsd;
+    });
+    var bySku = Object.keys(skuAgg).sort().map(function (sku) {
+      var a = skuAgg[sku], c = costs.map[sku];
+      var profit = r2(a.settleUsd * fx - a.costCny - a.freightCny);
+      return {
+        sku: sku, units: a.units, settleUsd: r2(a.settleUsd),
+        unitCost: c.unit, airFreight: c.air, costCny: r2(a.costCny), freightCny: r2(a.freightCny),
+        profitCny: profit, profitPerUnit: a.units ? r2(profit / a.units) : null
+      };
+    });
+    var summary = {
+      fx: fx, days: days.length, daysWithOrders: days.filter(function (x) { return x.orders > 0; }).length,
+      orders: totalOrders, grossUsd: r2(totalGross), settleUsd: r2(totalSettle),
+      otherUsd: r2(totalOther), adUsd: r2(totalAd),
+      costCny: r2(totalCost), freightCny: r2(totalFreight),
+      orderProfitCny: r2(totalSettle * fx - totalCost - totalFreight),
+      profitCny: r2((totalSettle + totalOther) * fx - totalCost - totalFreight),
+      avgProfitPerOrder: totalOrders ? r2((totalSettle * fx - totalCost - totalFreight) / totalOrders) : null,
+      acosPct: totalGross ? r2(Math.abs(totalAd) / totalGross * 100) : null
+    };
+    return {
+      summary: summary, daily: days, bySku: bySku,
+      cost: { count: costs.count, dup: costs.dup },
+      missingCostSkus: Object.keys(missingCost),
+      otherRows: otherRows.sort(function (a, b) { return a.date < b.date ? -1 : 1; }),
+      transfers: transfers
+    };
+  }
+
+  global.ProfitEngine = {
+    analyze: analyze,
+    parseXlsxRows: parseXlsxRows,
+    parseCSV: parseCSV,
+    parseCostRows: parseCostRows,
+    inflateRaw: inflateRaw
+  };
+})(window);
+</script>
 <script>window.AMZ_CONTENT = {
   storageKey: "amz_workbench_v1",
   demo: {
@@ -194,7 +593,7 @@ button{font-family:inherit}
     { t: "主键别混用", d: "MSKU 做利润主键，ASIN 做流量与广告主键，中间建一张变体映射表。" },
     { t: "成本表单独维护", d: "采购成本是唯一靠人工录入的数据，独立页签并标注更新日期。" },
     { t: "汇率快照固化", d: "结算按 USD、成本按 CNY，汇率写进当次结果，避免每次打开利润都变。" },
-    { t: "本地算完再上云", d: "浏览器不解析原始报表，本地 Node 脚本产出汇总 JSON，网页只负责展示。" }
+    { t: "本地算完再上云", d: "利润模块已在浏览器本地解析原始报表并核算；其余模块仍走本地脚本产出 JSON，网页不上传任何文件。" }
   ],
   modules: [
     {
@@ -256,8 +655,8 @@ button{font-family:inherit}
     },
     {
       id: "profit", name: "利润", en: "Profit", icon: "profit",
-      badge: "引擎就绪", badgeType: "ready", phase: "P0",
-      summary: "三表合并按 MSKU 算真实毛利，是全工作台的对账基准",
+      badge: "已接入", badgeType: "ready", phase: "P0",
+      summary: "网页内直接解析结算CSV与成本XLSX，按天和MSKU算真实利润",
       todos: [
         "结算 + 广告 + 采购成本三表按 MSKU 合并",
         "逐 SKU 销售额、退款率、ACOS、毛利拆解",
@@ -269,9 +668,9 @@ button{font-family:inherit}
         { name: "推广的商品报告", fmt: "XLSX", state: "已有文件" },
         { name: "采购成本（含头程）", fmt: "XLSX", state: "已有文件" }
       ],
-      engine: { name: "amazon-profit-analyzer", ready: true },
-      engineNote: "已安装，三份文件即可输出按 MSKU 的结构化利润报告，是 P0 要接进来的第一块。",
-      note: "利润是数据最齐、能立刻算准的一环。三份报表都齐，下一版可以直接跑真实数据。"
+      engine: { name: "本地 JS 核算引擎", ready: true },
+      engineNote: "已把 Python 核算脚本完整移植进网页：纯 JS 解压 xlsx，浏览器本地算出与脚本一致的按天/按MSKU利润，无需后端。",
+      note: "选结算 CSV 与成本 XLSX、填汇率即可核算。广告费目前取报表里的汇总行，逐日广告数据需单独报表。"
     }
   ]
 };
@@ -281,6 +680,8 @@ button{font-family:inherit}
 
   var C = window.AMZ_CONTENT;
   var KEY = C.storageKey;
+  var PROFIT_KEY = "amz_profit_v1";
+  var pendingCsv = null, pendingCostRows = null, computing = false;
   var tabs = C.tabs;
   var modules = C.modules;
   var curTab = "home";
@@ -333,6 +734,19 @@ button{font-family:inherit}
     catch (e) { toast("记录不会保存：本地存储不可用"); return false; }
   }
   function clearData() { try { localStorage.removeItem(KEY); } catch (e) {} }
+  function loadProfit() {
+    try {
+      var raw = localStorage.getItem(PROFIT_KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      return (d && d.summary) ? d : null;
+    } catch (e) { return null; }
+  }
+  function saveProfit(d) {
+    try { localStorage.setItem(PROFIT_KEY, JSON.stringify(d)); return true; }
+    catch (e) { toast("利润结果太大，本机存储不下"); return false; }
+  }
+  function moneyCny(n) { return "¥" + Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   function state() {
     var d = load();
@@ -427,7 +841,7 @@ button{font-family:inherit}
         '<span class="feed-name">' + esc(f.name) + '<br><span class="feed-fmt">' + esc(f.fmt) + "</span></span>" +
         '<span class="feed-state' + (ok ? " ok" : "") + '">' + (ok ? "已接入" : "待导入") + "</span></div>";
     }).join("");
-    h += '<div class="db-note">三份文件由本地 Node 脚本合并计算，产出 result.json；网页只导入汇总结果，不解析原始报表。</div>';
+    h += '<div class="db-note">利润模块可直接选 CSV + 成本 XLSX 在浏览器本地核算（无需脚本）；其余模块的汇总结果仍由本地脚本产出 result.json 后导入。文件全程不上传。</div>';
     h += "</div>";
 
     h += '<div class="section-title">四条约定 <small>动手前先定好</small></div><div class="card">';
@@ -435,6 +849,81 @@ button{font-family:inherit}
       return '<div class="principle"><b>' + esc(p.t) + "</b> · " + esc(p.d) + "</div>";
     }).join("");
     h += "</div>";
+    return h;
+  }
+
+  /* ---------- 利润模块：真实核算引擎界面 ---------- */
+  function renderProfit() {
+    var res = loadProfit();
+    var h = "";
+    h += '<div class="page-head"><span class="ph-ico">' + icon("profit") + '</span><div>' +
+      '<div class="ph-title">利润 <span class="badge ready">引擎已接入</span></div>' +
+      '<div class="ph-sub">本地解析结算 CSV + 成本 XLSX，按 MSKU 算真实利润。文件不上传，结果只存本机。</div></div></div>';
+
+    /* 计算入口 */
+    h += '<div class="card"><div class="card-h">第一步 · 选两份文件并核算</div>' +
+      '<div class="calc-grid">' +
+      '<div class="calc-field"><span class="calc-lab">结算报表 CSV</span>' +
+        '<span class="calc-file" id="csvName">' + esc(pendingCsv ? pendingCsv.name : "未选择") + '</span>' +
+        '<button class="btn" type="button" data-act="pick-csv">选择文件</button></div>' +
+      '<div class="calc-field"><span class="calc-lab">成本表 XLSX</span>' +
+        '<span class="calc-file" id="costName">' + esc(pendingCostRows ? "已就绪" : "未选择") + '</span>' +
+        '<button class="btn" type="button" data-act="pick-cost">选择文件</button></div>' +
+      '<div class="calc-field"><span class="calc-lab">汇率 USD→CNY</span>' +
+        '<input class="calc-input" id="fxInput" type="number" step="0.0001" min="0" value="6.7141"></div>' +
+      '</div>' +
+      '<div class="calc-actions"><button class="btn primary" type="button" data-act="run-profit"' +
+      (computing ? ' disabled' : '') + '>' + (computing ? "核算中…" : "开始核算") + '</button>' +
+      '<span class="calc-hint">成本表需含 sku / 成本 / 空运头程 三列；解析全在本地浏览器完成。</span></div></div>';
+
+    if (!res) {
+      h += '<div class="placeholder">' + icon("profit") +
+        '<div class="ph-big">还没有核算结果</div>' +
+        '<p>选好两份文件、填汇率，点「开始核算」即可。用你 11 月的报表试一次，几秒出结果。</p></div>';
+      h += '<div class="note">口径：订单结算 13 项带符号求和，减采购成本与空运头程；提现（Debt/Transfer）不计入费用；广告费、Vine、仓储等非订单费用单列。汇率写进结果，不随打开时间变化。</div>';
+      return h;
+    }
+
+    /* 结果：汇总 */
+    var s = res.summary;
+    h += '<div class="section-title">核算结果 <small>' + esc(res.period || "本次报表") + ' · 汇率 ' + s.fx + '</small></div>';
+    h += '<div class="kpis">';
+    h += kpiCard("成交额 USD", money(s.grossUsd), num(s.orders) + " 单 · " + num(s.daysWithOrders) + " 天有单");
+    h += kpiCard("订单利润 CNY", moneyCny(s.orderProfitCny), "单均 " + moneyCny(s.avgProfitPerOrder));
+    h += kpiCard("非订单费用 USD", money(s.otherUsd), "广告 " + money(s.adUsd) + " · ACOS " + pct((s.acosPct || 0) / 100));
+    h += kpiCard("全口径到手 CNY", moneyCny(s.profitCny), "扣采购 " + moneyCny(s.costCny) + " + 头程 " + moneyCny(s.freightCny));
+    h += '</div>';
+
+    /* 按天明细 */
+    h += '<div class="section-title">按天明细 <small>订单利润 = 结算×汇率 − 采购 − 头程</small></div>';
+    h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>日期</th><th>单</th><th>销售额$</th><th>结算$</th><th>订单利润¥</th><th>到手¥</th></tr></thead><tbody>';
+    res.daily.slice().reverse().forEach(function (d) {
+      h += '<tr><td class="mono">' + esc(d.date.slice(5)) + '</td><td>' + num(d.orders) + '</td>' +
+        '<td>' + money(d.grossUsd) + '</td><td>' + money(d.settleUsd) + '</td>' +
+        '<td>' + moneyCny(d.orderProfitCny) + '</td><td>' + moneyCny(d.profitCny) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+
+    /* 按 MSKU */
+    h += '<div class="section-title">按 MSKU <small>利润主键</small></div>';
+    h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>MSKU</th><th>件</th><th>结算$</th><th>成本¥</th><th>利润¥</th><th>单件¥</th></tr></thead><tbody>';
+    res.bySku.forEach(function (x) {
+      h += '<tr><td class="mono">' + esc(x.sku) + '</td><td>' + num(x.units) + '</td>' +
+        '<td>' + money(x.settleUsd) + '</td><td>' + moneyCny(x.costCny + x.freightCny) + '</td>' +
+        '<td>' + moneyCny(x.profitCny) + '</td><td>' + moneyCny(x.profitPerUnit) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+
+    /* 数据质量 */
+    var warn = [];
+    if (res.cost && res.cost.dup) warn.push("成本表有 " + res.cost.dup + " 个重复 SKU，取最后一条");
+    if (res.missingCostSkus && res.missingCostSkus.length) warn.push("缺成本的 SKU：" + res.missingCostSkus.join("、"));
+    if (res.transfers && res.transfers.length) warn.push("已排除 " + res.transfers.length + " 笔提现（未计入费用）");
+    warn.push("成本表 " + (res.cost ? res.cost.count : 0) + " 个 SKU，解析全在本地完成");
+    h += '<div class="card"><div class="card-h">数据质量</div><ul class="list">';
+    warn.forEach(function (w) { h += '<li>' + esc(w) + '</li>'; });
+    h += '</ul></div>';
+    h += '<button class="btn ghost" type="button" data-act="clear-profit" style="width:100%">清除核算结果</button>';
     return h;
   }
 
@@ -479,7 +968,9 @@ button{font-family:inherit}
     var st = state();
     renderTop(st);
     renderTabbar();
-    $("#view").innerHTML = (curTab === "home") ? renderHome(st) : renderModule(curTab, st);
+    if (curTab === "home") $("#view").innerHTML = renderHome(st);
+    else if (curTab === "profit") $("#view").innerHTML = renderProfit();
+    else $("#view").innerHTML = renderModule(curTab, st);
     renderFoot();
   }
 
@@ -499,6 +990,67 @@ button{font-family:inherit}
     var act = actEl.getAttribute("data-act");
     if (act === "import") { $("#fileInput").click(); }
     if (act === "clear") { clearData(); toast("已清除，回到演示数据"); renderAll(); }
+    if (act === "pick-csv") { $("#csvInput").click(); }
+    if (act === "pick-cost") { $("#costInput").click(); }
+    if (act === "run-profit") { runProfit(); }
+    if (act === "clear-profit") {
+      try { localStorage.removeItem(PROFIT_KEY); } catch (e) {}
+      pendingCsv = null; pendingCostRows = null;
+      toast("已清除核算结果"); renderAll();
+    }
+  });
+
+  function runProfit() {
+    if (!pendingCsv) { toast("先选结算报表 CSV"); return; }
+    if (!pendingCostRows) { toast("先选成本表 XLSX"); return; }
+    var fx = parseFloat($("#fxInput").value);
+    if (!fx || fx <= 0) { toast("汇率要填大于 0 的数字"); return; }
+    computing = true; renderAll();
+    setTimeout(function () {
+      try {
+        var result = window.ProfitEngine.analyze(pendingCsv.text, pendingCostRows, fx);
+        var period = (result.daily.length ? result.daily[0].date.slice(0, 7) : "本次报表");
+        result.period = period;
+        result.generatedAt = new Date().toLocaleString("zh-CN", { hour12: false });
+        saveProfit(result);
+        toast("核算完成：" + result.summary.orders + " 单，订单利润 " + moneyCny(result.summary.orderProfitCny));
+      } catch (e) {
+        toast("核算失败：" + e.message);
+      }
+      computing = false; renderAll();
+    }, 30);
+  }
+
+  $("#csvInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      pendingCsv = { name: f.name, text: String(r.result || "") };
+      toast("结算报表已就绪"); renderAll();
+    };
+    r.onerror = function () { toast("CSV 读取失败"); };
+    r.readAsText(f, "UTF-8");
+    e.target.value = "";
+  });
+
+  $("#costInput").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        pendingCostRows = window.ProfitEngine.parseXlsxRows(r.result);
+        toast("成本表已就绪，共 " + (pendingCostRows.length - 1) + " 行");
+      } catch (err) {
+        pendingCostRows = null;
+        toast("成本表解析失败：" + err.message);
+      }
+      renderAll();
+    };
+    r.onerror = function () { toast("XLSX 读取失败"); };
+    r.readAsArrayBuffer(f);
+    e.target.value = "";
   });
 
   $("#fileInput").addEventListener("change", function (e) {
