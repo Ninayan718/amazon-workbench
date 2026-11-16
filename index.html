@@ -2,182 +2,195 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBFAF8">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="亚马逊工作台">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#F6F8FB">
-<title>亚马逊工作台</title>
+<meta name="apple-mobile-web-app-title" content="亚马逊工作台">
+<meta name="description" content="亚马逊单干卖家工作台：选品/Listing/广告/利润核算 + 经营/数据/学习/周报反馈，数据只存在本机。">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" href="apple-touch-icon.png">
-<style>*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#F6F8FB;--card:#FFFFFF;--line:#E4EAF1;
-  --ink:#1B2A3A;--ink2:#5B6B7C;--ink3:#8A98A8;
-  --blue:#185FA5;--blue-bg:#E6F1FB;
-  --teal:#0F6E56;--teal-bg:#E1F5EE;
-  --amber:#BA7517;--amber-bg:#FAEEDA;
-  --gray:#5F5E5A;--gray-bg:#F1EFE8;
+<link rel="icon" type="image/png" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
+<title>亚马逊工作台</title>
+<style>:root{
+  --bg:#FBFAF8; --surface:#FFFFFF; --neutral:#F1EFE8; --neutral-2:#E7E4DC;
+  --text:#23211E; --text-2:#6B6862; --text-3:#9A968E;
+  --line:rgba(35,33,30,.10); --line-2:rgba(35,33,30,.20);
+  --blue:#185FA5; --blue-dark:#0C447C; --blue-soft:#E6F1FB; --blue-line:#85B7EB; --blue-mid:#B5D4F4;
+  --green:#0F6E56; --green-dark:#085041; --green-soft:#E1F5EE; --green-line:#9FE1CB; --green-mid:#9FE1CB;
+  --r:12px; --r-sm:8px;
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
 }
-html{-webkit-text-size-adjust:100%}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
-  background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-}
-button{font-family:inherit}
-.app{max-width:1100px;margin:0 auto;padding:0 16px 96px}
-
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 16px}
-.brand{display:flex;align-items:center;gap:12px;min-width:0}
-.brand-mark{width:40px;height:40px;flex:none;border-radius:10px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:500;letter-spacing:.5px}
-.brand-txt{min-width:0}
-.brand h1{font-size:18px;font-weight:500;line-height:1.3;white-space:nowrap}
-.brand p{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.period{text-align:right;flex:none}
-.period-label{display:block;font-size:11px;color:var(--ink3)}
-.period-val{display:block;font-size:13px;font-weight:500}
-
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 2px 8px;border:0;background:none;color:var(--ink3);font-size:11px;cursor:pointer}
-.tab svg{width:20px;height:20px}
-.tab.on{color:var(--blue)}
-
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
-.card-h{font-size:14px;font-weight:500;margin-bottom:12px}
-.section-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:14px;font-weight:500;margin:22px 0 10px}
-.section-title small{font-size:12px;font-weight:400;color:var(--ink3)}
-
-.statusbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.sb-line{display:flex;align-items:center;gap:8px}
-.sb-name{font-size:14px;font-weight:500}
-.sb-sub{font-size:12px;color:var(--ink3);margin-top:5px}
-.sb-actions{display:flex;gap:8px;flex-wrap:wrap}
-.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
-.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
-.btn.ghost{color:var(--ink2)}
-.btn:active{opacity:.75}
-
-.badge{display:inline-block;font-size:11px;line-height:1.6;padding:1px 8px;border-radius:999px;white-space:nowrap;font-weight:400}
-.badge.ready{background:var(--teal-bg);color:var(--teal)}
-.badge.todo{background:var(--gray-bg);color:var(--gray)}
-.badge.demo{background:var(--amber-bg);color:var(--amber)}
-.badge.phase{background:var(--blue-bg);color:var(--blue)}
-
-.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
-.k-label{font-size:12px;color:var(--ink2)}
-.k-val{font-size:21px;font-weight:500;letter-spacing:-.5px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.k-sub{font-size:11px;color:var(--ink3);margin-top:4px}
-
-.mods{display:grid;grid-template-columns:1fr;gap:10px}
-.mod{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;text-align:left;width:100%}
-.mod:hover{border-color:#B5D4F4}
-.mod-ico{width:38px;height:38px;flex:none;border-radius:10px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center}
-.mod-ico svg{width:21px;height:21px}
-.mod-body{flex:1;min-width:0;display:block}
-.mod-name{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.mod-sum{font-size:12px;color:var(--ink2);margin-top:4px;display:block}
-.mod-meta{font-size:11px;color:var(--ink3);margin-top:8px;display:block}
-.mod-arrow{color:var(--ink3);font-size:18px;align-self:center;flex:none}
-
-.feed{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.feed:last-child{border-bottom:0;padding-bottom:0}
-.feed:first-child{padding-top:0}
-.dot{width:8px;height:8px;flex:none;border-radius:50%;background:#C8D0DA}
-.dot.ok{background:var(--teal)}
-.feed-name{flex:1;min-width:0;font-size:13px}
-.feed-fmt{font-size:11px;color:var(--ink3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
-.feed-state{font-size:11px;color:var(--ink3);white-space:nowrap}
-.feed-state.ok{color:var(--teal)}
-.db-note{font-size:12px;color:var(--ink2);background:var(--teal-bg);border-radius:8px;padding:10px 12px;margin-top:12px}
-
-.principle{font-size:12px;color:var(--ink2);padding:9px 0;border-bottom:1px solid var(--line)}
-.principle:last-child{border-bottom:0;padding-bottom:0}
-.principle:first-child{padding-top:0}
-.principle b{font-weight:500;color:var(--ink)}
-
-.page-head{display:flex;align-items:flex-start;gap:12px;margin:6px 0 18px}
-.ph-ico{width:42px;height:42px;flex:none;border-radius:11px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center}
-.ph-ico svg{width:23px;height:23px}
-.ph-title{font-size:18px;font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ph-sub{font-size:12px;color:var(--ink2);margin-top:4px}
-
-.list{list-style:none}
-.list li{position:relative;padding-left:16px;font-size:13px;margin:9px 0}
-.list li:first-child{margin-top:0}
-.list li:last-child{margin-bottom:0}
-.list li::before{content:"";position:absolute;left:1px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--blue)}
-
-.tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-.tbl th,.tbl td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
-.tbl th{color:var(--ink3);font-weight:400;font-size:11px}
-.tbl tr:last-child td{border-bottom:0}
-.tbl td:last-child,.tbl th:last-child{text-align:right;width:64px}
-.tbl .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
-
-.engine{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.engine-name{font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border-radius:6px;padding:4px 8px;word-break:break-all}
-.engine-note{font-size:12px;color:var(--ink2);width:100%;margin-top:2px}
-
-.placeholder{border:1px dashed #C8D0DA;border-radius:12px;padding:30px 16px;text-align:center;color:var(--ink3);background:#FBFCFE;margin-bottom:12px}
-.placeholder svg{width:28px;height:28px;color:#B4C2D2}
-.ph-big{font-size:14px;color:var(--ink2);font-weight:500;margin:10px 0 4px}
-.placeholder p{font-size:12px}
-.note{font-size:12px;color:var(--ink2);background:var(--blue-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px}
-.back-btn{width:100%}
-
-.calc-grid{display:grid;grid-template-columns:1fr;gap:12px}
-.calc-field{display:flex;flex-direction:column;gap:6px;min-width:0}
-.calc-lab{font-size:12px;color:var(--ink2)}
-.calc-file{font-size:12px;color:var(--teal);background:var(--teal-bg);border-radius:6px;padding:7px 9px;word-break:break-all}
-.calc-input{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;width:100%;background:var(--card);color:var(--ink)}
-.calc-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
-.calc-hint{font-size:11px;color:var(--ink3);flex:1;min-width:180px}
-.tbl.wide th:last-child,.tbl.wide td:last-child{width:auto;text-align:right}
-.tbl.wide td{white-space:nowrap;font-size:11px}
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
-.tbl-wrap .tbl.wide{min-width:560px}
-@media(min-width:900px){.calc-grid{grid-template-columns:1fr 1fr 0.8fr}}
-
-#foot{padding:22px 0 6px;text-align:center;font-size:11px;color:var(--ink3);line-height:1.8}
-.toast{position:fixed;left:50%;bottom:88px;transform:translate(-50%,12px);background:#1B2A3A;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40;max-width:88vw;text-align:center}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-
-@media(min-width:900px){
-  .app{padding:0 24px 40px}
-  .topbar{padding:28px 0 20px}
-  .tabbar{position:sticky;top:12px;left:auto;right:auto;bottom:auto;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:20px}
-  .tab{flex-direction:row;gap:8px;font-size:13px;padding:10px 16px;border-radius:8px}
-  .tab svg{width:18px;height:18px}
-  .tab.on{background:var(--blue-bg)}
-  .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .mods{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .k-val{font-size:23px}
-  .toast{bottom:32px}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.6}
+.shell{max-width:1080px;margin:0 auto;padding:0 20px 40px}
+.topbar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:0.5px solid var(--line);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 0 12px;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;white-space:nowrap}
+.brand-mark{width:14px;height:14px;border-radius:4px;background:var(--blue);position:relative;display:inline-block}
+.brand-mark:after{content:"";position:absolute;left:4px;top:4px;width:6px;height:6px;border-radius:50%;background:#fff}
+.brand-sub{font-size:11px;color:var(--text-3);font-weight:400;margin-left:2px}
+.tabs{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0.5px solid var(--line);background:transparent;color:var(--text-2);border-radius:20px;padding:6px 15px;font-size:12px;white-space:nowrap}
+.tab.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-dark);font-weight:500}
+.tab.active.green{background:var(--green-soft);border-color:var(--green);color:var(--green-dark)}
+.topbar-right{font-size:11px;color:var(--text-3);white-space:nowrap}
+.page-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.page-head h1{font-size:16px;font-weight:500;margin:0}
+.page-head p{margin:0;font-size:11px;color:var(--text-3)}
+.subtabs{display:flex;gap:18px;border-bottom:0.5px solid var(--line);margin-bottom:16px;padding-bottom:0}
+.subtab{border:none;background:transparent;color:var(--text-3);font-size:13px;padding:4px 0 10px;position:relative}
+.subtab.active{color:var(--text);font-weight:500}
+.subtab.active:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--green)}
+.subtab-note{margin-left:auto;font-size:11px;color:var(--text-3);align-self:center;padding-bottom:8px}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.metric{background:var(--neutral);border-radius:var(--r-sm);padding:12px 14px}
+.metric-label{font-size:11px;color:var(--text-2)}
+.metric-value{font-size:23px;font-weight:500;margin-top:2px;line-height:1.3}
+.metric-value small{font-size:12px;font-weight:400;color:var(--text-3);margin-left:3px}
+.cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px;align-items:start}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--r);padding:16px}
+.card-title{font-size:13px;font-weight:500;margin:0 0 4px}
+.card-sub{font-size:11px;color:var(--text-3);margin:0 0 12px;line-height:1.6}
+.input{width:100%;padding:9px 11px;border:0.5px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--text);outline:none}
+.input:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-soft)}
+.input::placeholder{color:var(--text-3)}
+.pill-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.pill{font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--line);background:transparent;color:var(--text-2)}
+.pill.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-dark)}
+.pill.active.green{background:var(--green-soft);border-color:var(--green);color:var(--green-dark)}
+.spacer{flex:1}
+.btn{font-size:12px;padding:6px 13px;border-radius:var(--r-sm);border:0.5px solid var(--line-2);background:var(--surface);color:var(--text);white-space:nowrap}
+.btn:hover{border-color:var(--text-2)}
+.btn-primary{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-dark);font-weight:500}
+.btn-primary.green{background:var(--green-soft);border-color:var(--green);color:var(--green-dark)}
+.btn-sm{font-size:11px;padding:3px 10px}
+.btn-link{border:none;background:transparent;color:var(--blue);font-size:11px;padding:2px 0;text-decoration:underline;text-underline-offset:2px}
+.btn-link.green{color:var(--green)}
+.divider{border-top:0.5px solid var(--line);margin:14px 0 10px}
+.mini-label{font-size:11px;color:var(--text-2);margin-bottom:6px}
+.list{font-size:13px}
+.row{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--line)}
+.row:last-child{border-bottom:none}
+.dot{width:11px;height:11px;border-radius:3px;flex:none}
+.dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.gray{background:#B4B2A9}
+.row-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font-size:11px;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.tag.blue{background:var(--blue-soft);color:var(--blue-dark)}
+.tag.green{background:var(--green-soft);color:var(--green-dark)}
+.tag.gray{background:var(--neutral);color:var(--text-2)}
+.mins{font-size:11px;color:var(--text-3);white-space:nowrap}
+.echo{border-radius:var(--r);padding:16px;margin-bottom:0}
+.echo.blue{background:var(--blue-soft);border:0.5px solid var(--blue-line)}
+.echo.green{background:var(--green-soft);border:0.5px solid var(--green-line)}
+.echo-label{font-size:11px}
+.echo.blue .echo-label{color:var(--blue)} .echo.green .echo-label{color:var(--green)}
+.echo-num{font-size:22px;font-weight:500;margin:6px 0 10px}
+.echo.blue .echo-num{color:var(--blue-dark)} .echo.green .echo-num{color:var(--green-dark)}
+.bar{height:8px;border-radius:6px;overflow:hidden}
+.bar.blue{background:var(--blue-mid)} .bar.green{background:var(--green-mid)}
+.bar-fill{height:8px;border-radius:6px;transition:width .35s}
+.bar-fill.blue{background:var(--blue)} .bar-fill.green{background:var(--green)}
+.echo-text{font-size:12px;line-height:1.7;margin-top:12px;min-height:40px}
+.echo.blue .echo-text{color:var(--blue-dark)} .echo.green .echo-text{color:var(--green-dark)}
+.funnel{background:var(--neutral);border-radius:var(--r);padding:16px}
+.funnel-line{font-size:13px;color:var(--text);line-height:1.8}
+.funnel-note{font-size:11px;color:var(--text-2);line-height:1.6;margin-top:6px}
+.queue-item{font-size:12px;padding:9px 0;border-bottom:0.5px solid var(--line)}
+.queue-item:last-child{border-bottom:none}
+.queue-top{display:flex;align-items:center;gap:8px}
+.queue-note{font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.6}
+.queue-note.done{color:var(--blue-dark)}
+.checkbox{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2);margin-top:9px;cursor:pointer}
+.checkbox input{accent-color:var(--blue);margin:0}
+.more{margin-top:10px}
+.more-head{border:none;background:transparent;color:var(--text-2);font-size:11px;padding:0}
+.more-body{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:var(--text-2)}
+.field input,.field select{padding:7px 9px;border:0.5px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--text);outline:none;width:100%}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fill-form{background:var(--neutral);border-radius:var(--r-sm);padding:12px;margin-top:8px}
+.fill-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:end;margin-bottom:6px}
+.fill-row .field{gap:2px}
+.foot{font-size:11px;color:var(--text-3);line-height:1.7;margin-top:18px;border-top:0.5px solid var(--line);padding-top:14px}
+.empty{font-size:12px;color:var(--text-3);padding:10px 0;line-height:1.7}
+.report-section{margin-bottom:14px}
+.report-section h3{font-size:13px;font-weight:500;margin:0 0 8px}
+.report-pre{white-space:pre-wrap;word-break:break-word;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--r);padding:14px;font-family:var(--font);font-size:12px;line-height:1.8;margin:0;color:var(--text)}
+.report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.collapse{border-top:0.5px solid var(--line);margin-top:16px;padding-top:12px}
+.collapse-head{display:flex;align-items:center;gap:8px;border:none;background:transparent;padding:0;font-size:12px;color:var(--text-2);width:100%;text-align:left}
+.collapse-body{margin-top:12px}
+.hint{font-size:11px;color:var(--text-3);line-height:1.7;margin-top:6px}
+.weekbars{display:flex;align-items:flex-end;gap:8px;height:60px;margin-top:4px}
+.weekbar{flex:1;background:var(--blue-mid);border-radius:3px 3px 0 0;min-height:3px}
+.weekbar.green{background:var(--green-mid)}
+.weekbar.today{background:var(--blue)}
+.weekbar.today.green{background:var(--green)}
+.weekdays{display:flex;gap:8px;margin-top:6px}
+.weekdays span{flex:1;text-align:center;font-size:11px;color:var(--text-3)}
+.review-item{display:flex;gap:8px;align-items:center;font-size:12px;padding:7px 0;border-bottom:0.5px solid var(--line)}
+.review-item:last-child{border-bottom:none}
+.goal-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 10px}
+.goal-split>div{background:var(--surface);border-radius:var(--r-sm);padding:9px 11px;display:flex;flex-direction:column;gap:1px}
+.goal-split .goal-k{font-size:11px;color:var(--text-2)}
+.goal-split b{font-size:18px;font-weight:500;color:var(--green-dark)}
+.sale-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.ref-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.ref-grid>div{display:flex;flex-direction:column;gap:1px}
+.ref-grid span{font-size:11px;color:var(--text-2)}
+.ref-grid b{font-size:16px;font-weight:500}
+.advice-hero{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px}
+.advice-hero.up{background:var(--green-soft);border:0.5px solid var(--green-line)}
+.advice-hero.down{background:var(--neutral);border:0.5px solid var(--line-2)}
+.advice-hero>div{display:flex;flex-direction:column;gap:1px}
+.advice-k{font-size:11px;color:var(--text-2)}
+.advice-hero b{font-size:20px;font-weight:500;color:var(--green-dark)}
+.databars{display:flex;align-items:flex-end;gap:2px;height:60px;margin-top:6px}
+.databar{flex:1;background:var(--green-mid);border-radius:2px 2px 0 0;min-height:2px}
+.databar.today{background:var(--green)}
+.dataaxis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-top:6px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(10px);background:var(--text);color:#fff;padding:9px 16px;border-radius:20px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:86vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.modgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:10px}
+.modcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;width:100%;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--r);padding:14px;cursor:pointer;color:var(--text)}
+.modcard:hover{border-color:var(--blue-line)}
+.modico{width:36px;height:36px;border-radius:10px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center}
+.modname{font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.modsum{font-size:12px;color:var(--text-2);line-height:1.6}
+.modmeta{font-size:11px;color:var(--text-3)}
+@media (max-width:760px){
+  .shell{padding:0 14px 32px}
+  .topbar{gap:10px;padding:12px 0 10px;margin-bottom:16px}
+  .brand-sub,.topbar-right{display:none}
+  .tabs{order:3;width:100%;flex:none}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .metrics{gap:8px}
+  .metric{padding:10px}
+  .metric-value{font-size:20px}
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .subtab-note{display:none}
 }
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">AW</div>
-      <div class="brand-txt">
-        <h1>亚马逊工作台</h1>
-        <p>Amazon US · 选品 / Listing / 广告 / 利润</p>
-      </div>
-    </div>
-    <div id="periodBox"></div>
-  </header>
-  <nav class="tabbar" id="tabbar" aria-label="模块导航"></nav>
-  <main id="view"></main>
-  <footer id="foot"></footer>
+<div class="shell">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark"></span><span>亚马逊工作台</span><span class="brand-sub">单干卖家 · 经营与反馈</span></div>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="topbar-right" id="topbarRight"></div>
+</header>
+<main id="view"></main>
+<footer class="foot" id="foot"></footer>
 </div>
-<input type="file" id="fileInput" accept=".json,application/json" hidden>
-<input type="file" id="csvInput" accept=".csv,text/csv" hidden>
-<input type="file" id="costInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
-<div class="toast" id="toast" role="status"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <script>/* 利润核算引擎（纯前端、零依赖）
    在浏览器里解析 Custom Unified Transaction CSV + 成本 XLSX，
    按 amazon-profit-analyzer v0.2.0 官方口径算按天/按 MSKU 的真实利润。
@@ -562,525 +575,1577 @@ button{font-family:inherit}
   };
 })(window);
 </script>
-<script>window.AMZ_CONTENT = {
-  storageKey: "amz_workbench_v1",
-  demo: {
-    period: "2026-10",
-    kpi: {
-      asinCount: 12,
-      sales: 48620.50,
-      adSpend: 9237.90,
-      acos: 0.190,
-      profit: 8412.30,
-      margin: 0.173,
-      refundRate: 0.042
+<script>/* 文案与常量：所有反馈措辞集中在这里，方便以后调整语气 */
+const CONTENT = {
+  STORAGE_KEY: 'amz_feedback_v1',
+  WORKBENCH_KEY: 'amz_workbench_v1',
+  PROFIT_KEY: 'amz_profit_v1',
+  APP_NAME: '亚马逊工作台',
+
+  /* ---- 工作台模块 ---- */
+  WB_DEMO: {
+    period: '2026-10',
+    kpi: { asinCount: 12, sales: 48620.50, adSpend: 9237.90, acos: 0.190, profit: 8412.30, margin: 0.173, refundRate: 0.042 }
+  },
+  WB_FEEDS: [
+    { key: 'settlement', name: '结算报表', fmt: 'Custom Unified Transaction CSV', hint: 'Seller Central 导出' },
+    { key: 'ads', name: '广告报表', fmt: '推广的商品 XLSX', hint: 'Amazon Ads 导出' },
+    { key: 'cost', name: '采购成本表', fmt: '成本 XLSX', hint: '人工维护，最易过期' }
+  ],
+  WB_PRINCIPLES: [
+    { t: '主键别混用', d: 'MSKU 做利润主键，ASIN 做流量与广告主键，中间建一张变体映射表。' },
+    { t: '成本表单独维护', d: '采购成本是唯一靠人工录入的数据，独立页签并标注更新日期。' },
+    { t: '汇率快照固化', d: '结算按 USD、成本按 CNY，汇率写进当次结果，避免每次打开利润都变。' },
+    { t: '本地算完再上云', d: '利润核算在浏览器本地完成；其余模块走本地脚本产出 JSON 后导入。文件不上传。' }
+  ],
+  WB_MODULES: {
+    sourcing: {
+      id: 'sourcing', name: '选品', icon: 'target', badge: '待接入', badgeType: 'todo', phase: 'P1',
+      summary: '竞品与市场验证，把候选品变成可决策的分数',
+      todos: ['候选品清单与市场规模、竞争度速览', '竞品拆解：价格带、评论痛点、卖点缺口', '按预估毛利与推广成本反推是否值得做', '留档结论，回流数据底座供后续环节复用'],
+      inputs: [{ name: 'Sorftime 插件导出', fmt: 'JSON / CSV', state: '待打通' }, { name: '竞品 ASIN 与评论', fmt: '手动 / 抓取', state: '待打通' }, { name: '预估头程与采购成本', fmt: '成本表', state: '待打通' }],
+      engine: { name: 'Sorftime + Tampermonkey', ready: false },
+      engineNote: '插件没有 API，靠浏览器浮层展示数据，需先建抓取脚本才能落表。这是 P1 第一件要打通的事。',
+      note: '选品是唯一还没有现成分析引擎的环节，前期不确定性最大，所以排在利润和广告之后。'
+    },
+    listing: {
+      id: 'listing', name: 'Listing', icon: 'image', badge: '引擎就绪', badgeType: 'ready', phase: 'P2',
+      summary: '卖点分层、文案与七图位套图，按合规闸门逐张过',
+      todos: ['竞品视觉解构与核心卖点分层', '标题、五点、A+ 文案与关键词布局', '七图位信息架构，一图一主张', '图片合规检查与版本效果对比'],
+      inputs: [{ name: '产品参数与差异化', fmt: '手动录入', state: '待录入' }, { name: '竞品 ASIN（1-3 个）', fmt: '手动录入', state: '待录入' }, { name: '品牌元素与实拍素材', fmt: '图片文件', state: '可选' }],
+      engine: { name: 'amazon-listing-visual-studio', ready: true },
+      engineNote: '已安装，可直接产出视觉策略、七图位架构与出图提示词；图片生成按次消耗额度，无月费。',
+      note: 'Listing 产出以文件为主，工作台这里只做索引与版本记录，不把图片塞进本地存储。'
+    },
+    ads: {
+      id: 'ads', name: '广告', icon: 'ads', badge: '引擎就绪', badgeType: 'ready', phase: 'P1',
+      summary: '搜索词报告诊断，产出否定词与竞价调整清单',
+      todos: ['搜索词报告清洗：高花费零转化词识别', '否定关键词库（Exact / Phrase）生成', '按目标 ACOS 反推竞价与预算分配', '调整清单回写，跟踪下一周期变化'],
+      inputs: [{ name: '搜索词报告', fmt: 'XLSX', state: '已有文件' }, { name: '推广的商品报告', fmt: 'XLSX', state: '已有文件' }, { name: '目标 ACOS 与日预算', fmt: '手动录入', state: '待录入' }],
+      engine: { name: 'amazon-ppc-campaign', ready: true },
+      engineNote: '已安装，支持从零搭建广告结构（模式 A）与审视现有广告（模式 B）。',
+      note: '广告结论必须和利润模块的 MSKU 口径对齐，否则会出现「ACOS 降了但利润没涨」。'
     }
   },
-  feedDefaults: { settlement: false, ads: false, cost: false },
-  tabs: [
-    { id: "home", label: "总览", icon: "home" },
-    { id: "sourcing", label: "选品", icon: "target" },
-    { id: "listing", label: "Listing", icon: "image" },
-    { id: "ads", label: "广告", icon: "ads" },
-    { id: "profit", label: "利润", icon: "profit" }
+
+  OPS_VIEWS: [
+    { k: 'opt', label: '在营优化', hint: '已有在卖的品，日常调整与维护' },
+    { k: 'src', label: '选品开发', hint: '找品、测算、打样、上架前' }
   ],
-  feeds: [
-    { key: "settlement", name: "结算报表", fmt: "Custom Unified Transaction CSV", hint: "Seller Central 导出" },
-    { key: "ads", name: "广告报表", fmt: "推广的商品 XLSX", hint: "Amazon Ads 导出" },
-    { key: "cost", name: "采购成本表", fmt: "成本 XLSX", hint: "人工维护，最易过期" }
+  OPS_TYPES: {
+    opt: ['广告', 'Listing', '供应链', '评价客服', '核算', '竞品监控'],
+    src: ['看品', '深挖', '测算', '否决', '打样', '推进']
+  },
+  FUNNEL_MAP: { '看品': 'viewed', '深挖': 'dug', '测算': 'calc', '否决': 'rejected', '推进': 'advanced' },
+  FUNNEL_LABELS: [
+    { k: 'viewed', label: '看了' }, { k: 'dug', label: '深挖' },
+    { k: 'calc', label: '测算' }, { k: 'rejected', label: '否决' }, { k: 'advanced', label: '推进' }
   ],
-  principles: [
-    { t: "主键别混用", d: "MSKU 做利润主键，ASIN 做流量与广告主键，中间建一张变体映射表。" },
-    { t: "成本表单独维护", d: "采购成本是唯一靠人工录入的数据，独立页签并标注更新日期。" },
-    { t: "汇率快照固化", d: "结算按 USD、成本按 CNY，汇率写进当次结果，避免每次打开利润都变。" },
-    { t: "本地算完再上云", d: "利润模块已在浏览器本地解析原始报表并核算；其余模块仍走本地脚本产出 JSON，网页不上传任何文件。" }
+  KNOW_CATS: ['政策合规', '广告', 'Listing', '选品', 'FBA', '核算', '工具'],
+  METRICS: [
+    { k: 'ctr', label: 'CTR', suffix: '%', digits: 2 },
+    { k: 'cvr', label: 'CVR', suffix: '%', digits: 2 },
+    { k: 'acos', label: 'ACOS', suffix: '%', digits: 1 },
+    { k: 'bsr', label: 'BSR', suffix: '', digits: 0 }
   ],
-  modules: [
-    {
-      id: "sourcing", name: "选品", en: "Sourcing", icon: "target",
-      badge: "待接入", badgeType: "todo", phase: "P1",
-      summary: "竞品与市场验证，把候选品变成可决策的分数",
-      todos: [
-        "候选品清单与市场规模、竞争度速览",
-        "竞品拆解：价格带、评论痛点、卖点缺口",
-        "按预估毛利与推广成本反推是否值得做",
-        "留档结论，回流数据底座供后续环节复用"
-      ],
-      inputs: [
-        { name: "Sorftime 插件导出", fmt: "JSON / CSV", state: "待打通" },
-        { name: "竞品 ASIN 与评论", fmt: "手动 / 抓取", state: "待打通" },
-        { name: "预估头程与采购成本", fmt: "成本表", state: "待打通" }
-      ],
-      engine: { name: "Sorftime + Tampermonkey", ready: false },
-      engineNote: "插件没有 API，靠浏览器浮层展示数据，需先建抓取脚本才能落表。这是 P1 第一件要打通的事。",
-      note: "选品是唯一还没有现成分析引擎的环节，前期不确定性最大，所以排在利润和广告之后。"
-    },
-    {
-      id: "listing", name: "Listing", en: "Listing", icon: "image",
-      badge: "引擎就绪", badgeType: "ready", phase: "P2",
-      summary: "卖点分层、文案与七图位套图，按合规闸门逐张过",
-      todos: [
-        "竞品视觉解构与核心卖点分层",
-        "标题、五点、A+ 文案与关键词布局",
-        "七图位信息架构，一图一主张",
-        "图片合规检查与版本效果对比"
-      ],
-      inputs: [
-        { name: "产品参数与差异化", fmt: "手动录入", state: "待录入" },
-        { name: "竞品 ASIN（1-3 个）", fmt: "手动录入", state: "待录入" },
-        { name: "品牌元素与实拍素材", fmt: "图片文件", state: "可选" }
-      ],
-      engine: { name: "amazon-listing-visual-studio", ready: true },
-      engineNote: "已安装，可直接产出视觉策略、七图位架构与出图提示词；图片生成按次消耗额度，无月费。",
-      note: "Listing 产出以文件为主，工作台这里只做索引与版本记录，不把图片塞进本地存储。"
-    },
-    {
-      id: "ads", name: "广告", en: "PPC", icon: "ads",
-      badge: "引擎就绪", badgeType: "ready", phase: "P1",
-      summary: "搜索词报告诊断，产出否定词与竞价调整清单",
-      todos: [
-        "搜索词报告清洗：高花费零转化词识别",
-        "否定关键词库（Exact / Phrase）生成",
-        "按目标 ACOS 反推竞价与预算分配",
-        "调整清单回写，跟踪下一周期变化"
-      ],
-      inputs: [
-        { name: "搜索词报告", fmt: "XLSX", state: "已有文件" },
-        { name: "推广的商品报告", fmt: "XLSX", state: "已有文件" },
-        { name: "目标 ACOS 与日预算", fmt: "手动录入", state: "待录入" }
-      ],
-      engine: { name: "amazon-ppc-campaign", ready: true },
-      engineNote: "已安装，支持从零搭建广告结构（模式 A）与审视现有广告（模式 B）。",
-      note: "广告结论必须和利润模块的 MSKU 口径对齐，否则会出现「ACOS 降了但利润没涨」。"
-    },
-    {
-      id: "profit", name: "利润", en: "Profit", icon: "profit",
-      badge: "已接入", badgeType: "ready", phase: "P0",
-      summary: "网页内直接解析结算CSV与成本XLSX，按天和MSKU算真实利润",
-      todos: [
-        "结算 + 广告 + 采购成本三表按 MSKU 合并",
-        "逐 SKU 销售额、退款率、ACOS、毛利拆解",
-        "异常 ACOS / 退款 / 低毛利自动预警",
-        "汇总结果供总览 KPI 与下一轮选品使用"
-      ],
-      inputs: [
-        { name: "Custom Unified Transaction", fmt: "CSV", state: "已有文件" },
-        { name: "推广的商品报告", fmt: "XLSX", state: "已有文件" },
-        { name: "采购成本（含头程）", fmt: "XLSX", state: "已有文件" }
-      ],
-      engine: { name: "本地 JS 核算引擎", ready: true },
-      engineNote: "已把 Python 核算脚本完整移植进网页：纯 JS 解压 xlsx，浏览器本地算出与脚本一致的按天/按MSKU利润，无需后端。",
-      note: "选结算 CSV 与成本 XLSX、填汇率即可核算。广告费目前取报表里的汇总行，逐日广告数据需单独报表。"
-    }
-  ]
+  CHECK_DAYS: [3, 7],
+  RULE_REVIEW_DAYS: 30,
+  DEFAULT_SETTINGS: {
+    goalOps: 5, goalKnow: 2, goalOther: 1, weekStart: 1,
+    monthlyProfitGoal: 3000, monthlyFixedCost: 1420, acosWarn: 30, fx: 6.7141,
+    ai: { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini', key: '' }
+  },
+
+  /* 反馈语料：每条是 (s) => 字符串 或 null。只陈述事实，不夸人、不评判。 */
+  PRAISE_OPS: [
+    s => s.todayCount > 0 && `今天记了 ${s.todayCount} 条、${s.todayMinutes} 分钟的可控动作，覆盖 ${s.typesToday.join('、')}。`,
+    s => s.streak > 1 && `近 30 天有 ${s.streak} 天记了经营动作，这条续上了。中断不清零，只看有没有做可控动作。`,
+    s => s.coldType && `${s.coldType} 已经 ${s.coldDays} 天没动。若是有意为之就没问题；要留个提醒的话，明天可以给它 20 分钟。`,
+    s => s.yesterdayCount > 0 && s.todayCount > s.yesterdayCount && `今天比昨天多 ${s.todayCount - s.yesterdayCount} 条动作，节奏在往上走。`,
+    s => s.weekRejected > 0 && `本周否决了 ${s.weekRejected} 个品，帮你避开了坑，算推进。只看上架数的话，这周会显得白干。`,
+    s => s.pendingChecks > 0 && `有 ${s.pendingChecks} 项调整到了回填时间。数据回来，这次调整才算形成闭环。`,
+    s => s.weekViewCounts.opt > 0 && s.weekViewCounts.src > 0 && `本周在营优化 ${s.weekViewCounts.opt} 条、选品开发 ${s.weekViewCounts.src} 条，两边都没停。`,
+    s => s.longestItem && `今天最专注的一段是 ${s.longestItem.minutes} 分钟的「${s.longestItem.text}」。`,
+    s => s.weekTypes.length >= 4 && `本周动作覆盖了 ${s.weekTypes.length} 条线：${s.weekTypes.slice(0, 4).join('、')}，没有全压在一件事上。`,
+    s => s.bridgedToday > 0 && `今天有 ${s.bridgedToday} 条动作来自学过的知识，7 天后能看到它到底有没有用。`,
+    s => s.todayCount === 1 && `第一条已经记下。单干没人替你验收，写下来本身就是一次确认。`,
+    s => s.todayCount >= s.goalOps && `今天到了自己设的 ${s.goalOps} 条目标。这个数字是你定的，不是别人派的。`,
+    s => s.doneChecks > 0 && `本周有 ${s.doneChecks} 项调整拿到了回填数据，前后差异已经在周报里。`,
+    s => s.weekMinutes > 0 && `本周经营动作累计 ${s.weekMinutes} 分钟，这些时间以前多半是没被记下来的。`,
+    s => s.weekCount > 0 && `本周共 ${s.weekCount} 条可控动作。结果指标滞后，但这一栏是你能控制的。`,
+    s => s.coldView && `${s.coldView} 视图本周还没有记录，切换过去补一条也行，不必勉强。`,
+    s => s.todayCount > 0 && `已记下「${s.lastText}」。这类动作要 3~7 天才有信号，回看队列会替你记着。`
+  ],
+  PRAISE_KNOW: [
+    s => s.gapCat && `本周 ${s.gapCat} 类记了 ${s.gapCatCount} 条，但经营页还没有对应的 ${s.gapCat} 动作。学用之间差一步，挑一条送过去验证，7 天后就有回音。`,
+    s => s.matchedCat && `本周 ${s.matchedCat} 既学了也做了，这条闭环是通的。`,
+    s => s.dueReviews > 0 && `有 ${s.dueReviews} 条规则类知识到了复核时间。回来记一句「仍有效 / 已改」，就算一条有效记录。`,
+    s => s.bridged > 0 && `已经送去经营页验证 ${s.bridged} 条，其中 ${s.bridgedDone} 条拿到了回填数据。`,
+    s => s.streak > 1 && `本区近 30 天有 ${s.streak} 天记录。和其他学习分开算，互不稀释。`,
+    s => s.weekCats.length >= 3 && `本周知识覆盖了 ${s.weekCats.slice(0, 3).join('、')}，不是只盯着一个方向。`,
+    s => s.todayCount > 0 && `今天本区 ${s.todayCount} 条、${s.todayMinutes} 分钟。学过的东西只要没落到动作上，很容易停在「知道」。`,
+    s => s.ruleCount > 0 && `本周记了 ${s.ruleCount} 条规则类知识，都排进了复核队列。平台规则会变，到期会提醒你。`,
+    s => s.todayCount === 1 && `第一条记下了。分类选完就结束，不强制写笔记。`,
+    s => s.weekCount > 0 && `本周本区共 ${s.weekCount} 条。单干没有搭档提醒你打法过时，复核队列就是干这个的。`
+  ],
+  PRAISE_OTHER: [
+    s => s.streak > 1 && `其他学习近 30 天有 ${s.streak} 天记录，这一区独立统计，不和业务比。`,
+    s => s.todayCount > 0 && `今天记了 ${s.todayCount} 条、${s.todayMinutes} 分钟。这一区只看掌握度，不出现任何业务对照。`,
+    s => s.weekCount > 0 && `本周共 ${s.weekCount} 条、${s.weekMinutes} 分钟。不产生业务回音，也不因此打折。`,
+    s => s.noteCount > 0 && `本周有 ${s.noteCount} 条写了自己的理解，比单纯记时长更能说明掌握了什么。`,
+    s => s.todayCount === 1 && `记下了。这一条不用交给谁验收，也不必转成经营动作。`,
+    s => s.todayCount >= s.goalOther && `到了自己设的 ${s.goalOther} 条目标。够了就停。`
+  ],
+
+  PRAISE_DATA: [
+    s => s.needReached && `本月真实到手目标已达成：扣掉月固定成本后仍有 ¥${s.realProfit} / ¥${s.goal}。剩下的日子是余量。`,
+    s => s.hasToday && s.todayProfit >= s.todayNeed && s.todayNeed > 0 && `今天的订单利润 ¥${s.todayProfit} 已过线（今日需 ¥${s.todayNeed}），按全口径算的。`,
+    s => s.hasToday && `今天 ${s.todayOrders} 单、销售额 $${s.todayRevenue}，订单利润 ¥${s.todayProfit}（真实值，非估算）。`,
+    s => s.daysLeft > 0 && s.needToday > 0 && `今天需要赚 ¥${s.needToday}${s.canEstimate ? '、约 ' + s.needOrders + ' 单' : ''}（全口径）。已扣月固定成本 ¥${s.fixedCost}，按剩余 ${s.daysLeft} 天摊平。`,
+    s => s.canEstimate && `近 14 天真实单均利润 ¥${s.profitPerOrder}，客单价 $${s.aov}。这是按你填的订单利润算的均值，不是按利润率估的。`,
+    s => s.monthProfit > 0 && `本月累计销售额 $${s.monthRevenue}、订单利润 ¥${s.monthProfit}；扣固定成本后真实到手 ¥${s.realProfit}，完成 ${s.pct}%。`,
+    s => s.adBudget && s.ad3Count >= 3 && `前 3 天广告日均 $${s.ad3Avg}，ACOS ${s.ad3Acos}%；今天预算 $${s.adBudget}、ACOS 要求 ≤${s.acosTarget}%。`,
+    s => s.acos !== null && s.acos > s.acosWarn && `今天 ACOS ${s.acos}% 高于警戒线 ${s.acosWarn}%。`,
+    s => s.acos !== null && s.acos <= s.acosWarn && `今天 ACOS ${s.acos}%，在 ${s.acosWarn}% 线内。`,
+    s => s.logDays > 0 && `本月记了 ${s.logDays} 天。这是看板不是打卡——断一天不扣分，缺口会如实反映。`,
+    s => !s.hasToday && `今天还没记。填订单、销售额$、订单利润¥、广告花费$，目标缺口和广告预算会自己算出来。`,
+    s => !s.canEstimate && `再记几天真实利润，就能估出单均利润和「约需几单」。`
+  ],
+
+  ADVICE_NOTE: {
+    enough: '前 3 天广告日均花费与 ACOS 已足够，按稳健型给今天的预算与 ACOS 要求。',
+    partial: '广告数据还差 {n} 天（需要连续 3 天）。先按近几天估算，满 3 天后再用稳健型规则。',
+    none: '还没有广告花费记录。每天在录入区填「今日广告花费用 $」，满 3 天就能给预算建议。'
+  },
+
+  CHECK_NOTE: {
+    3: (label, before, after, diff) => `${label} 从 ${before} 到 ${after}，${diff}。样本还小，第 7 天再看一次。`,
+    7: (label, before, after, diff) => `7 天数据：${label} 从 ${before} 到 ${after}，${diff}。这里只陈述变化，不替你判断因果。`
+  },
+
+  AI_SYSTEM: '你是一位给亚马逊单干卖家做周复盘的搭档。只依据用户提供的原始记录说话，不编造数据，不夸奖，不下因果结论，不提泛泛的建议。输出纯文本，分五段，每段以「一、工作台与利润」「二、经营」「三、数据目标」「四、亚马逊知识」「五、其他学习」开头，每段 3~5 句，指出具体事实、被冷落的线、学用脱节之处、目标进度，以及下周一个可执行的小动作。语气克制、具体。',
+
+  AI_USER: data => `以下是本周工作台与反馈原始记录（JSON）：\n${JSON.stringify(data, null, 2)}\n\n请按五段输出周复盘。`,
+
+  EMPTY: {
+    ops: '今天还没有经营动作。记一条就能拿到回音，不用等出单。',
+    know: '本区今天还没有记录。看到一条有用的知识，3 秒记下来就行。',
+    other: '这一区今天还是空的。想记才记，不记也不影响别的区。',
+    data: '本月还没有数据。填第一笔订单与销售额，今日目标就能算出来。'
+  }
 };
-</script>
-<script>(function () {
-  "use strict";
 
-  var C = window.AMZ_CONTENT;
-  var KEY = C.storageKey;
-  var PROFIT_KEY = "amz_profit_v1";
-  var pendingCsv = null, pendingCostRows = null, computing = false;
-  var tabs = C.tabs;
-  var modules = C.modules;
-  var curTab = "home";
-  var toastTimer = null;
+/* 回声 · 亚马逊单干卖家的工作 / 学习反馈工具
+   纯前端，数据只存本机 localStorage，不上传任何服务器。 */
+(function () {
+  'use strict';
 
-  function $(s) { return document.querySelector(s); }
+  const KEY = CONTENT.STORAGE_KEY;
+  const DAY = 86400000;
+  const KNOW_TO_OPS = {
+    '政策合规': { view: 'opt', types: ['核算', '供应链'] },
+    '广告': { view: 'opt', types: ['广告'] },
+    'Listing': { view: 'opt', types: ['Listing'] },
+    '选品': { view: 'src', types: ['看品', '深挖', '测算', '否决', '推进'] },
+    'FBA': { view: 'opt', types: ['供应链'] },
+    '核算': { view: 'opt', types: ['核算'] },
+    '工具': { view: 'opt', types: ['竞品监控'] }
+  };
 
+  /* ---------- 基础工具 ---------- */
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function dkey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function today() { return dkey(Date.now()); }
+  function daysAgoKey(n) { return dkey(Date.now() - n * DAY); }
   function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  function weekStart() {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    const wd = (d.getDay() + 6) % 7; d.setDate(d.getDate() - wd);
+    return d.getTime();
+  }
+  function inWeek(ts) { return ts >= weekStart(); }
+  function weekKeys() { const a = []; const w = weekStart(); for (let i = 0; i < 7; i++) a.push(dkey(w + i * DAY)); return a; }
+  function daysBetween(ts) { return Math.floor((Date.now() - ts) / DAY); }
+  /* 近 30 天有记录的天数：永不因中断而清零 */
+  function activeDays(items) {
+    const set = new Set(items.map(function (x) { return dkey(x.createdAt); }));
+    let n = 0; for (let i = 0; i < 30; i++) if (set.has(daysAgoKey(i))) n++;
+    return n;
+  }
+  function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function minutesOf(items) { return sum(items.map(function (x) { return Number(x.minutes) || 0; })); }
+  function fmtDate(ts) { const d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate(); }
+  function daysInMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+  function monthKey(k) { return String(k).slice(0, 7); }
+  function thisMonthKey() { return today().slice(0, 7); }
+  function round2(n) { return Math.round(n * 100) / 100; }
 
-  function icon(n) {
-    var p = {
-      home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>',
-      target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
-      image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m4 17 5-5 3.5 3.5L16 12l4 4"/>',
-      ads: '<path d="M3 17 9 11l4 4 8-8"/><path d="M16 7h5v5"/>',
-      profit: '<path d="M4 20v-9"/><path d="M10 20V5"/><path d="M16 20v-6"/><path d="M2 20h20"/>',
-      db: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'
+  /* ---------- 数据 ---------- */
+  function blank() {
+    return {
+      version: 3, ops: [], checkbacks: [], knowledge: [], otherStudy: [], bridge: [], sales: [],
+      settings: JSON.parse(JSON.stringify(CONTENT.DEFAULT_SETTINGS)),
+      reportCache: null, createdAt: Date.now()
     };
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[n] || "") + "</svg>";
   }
-
-  function money(n) {
-    return "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  function pct(n) { return (Number(n || 0) * 100).toFixed(1) + "%"; }
-  function num(n) { return Number(n || 0).toLocaleString("en-US"); }
-  function validTab(id) {
-    for (var i = 0; i < tabs.length; i++) { if (tabs[i].id === id) return true; }
-    return false;
-  }
-  function findModule(id) {
-    for (var i = 0; i < modules.length; i++) { if (modules[i].id === id) return modules[i]; }
-    return modules[0];
-  }
-
+  let DB;
   function load() {
     try {
-      var raw = localStorage.getItem(KEY);
-      if (!raw) return null;
-      var d = JSON.parse(raw);
-      return (d && d.source === "imported") ? d : null;
-    } catch (e) { return null; }
-  }
-  function save(d) {
-    try { localStorage.setItem(KEY, JSON.stringify(d)); return true; }
-    catch (e) { toast("记录不会保存：本地存储不可用"); return false; }
-  }
-  function clearData() { try { localStorage.removeItem(KEY); } catch (e) {} }
-  function loadProfit() {
-    try {
-      var raw = localStorage.getItem(PROFIT_KEY);
-      if (!raw) return null;
-      var d = JSON.parse(raw);
-      return (d && d.summary) ? d : null;
-    } catch (e) { return null; }
-  }
-  function saveProfit(d) {
-    try { localStorage.setItem(PROFIT_KEY, JSON.stringify(d)); return true; }
-    catch (e) { toast("利润结果太大，本机存储不下"); return false; }
-  }
-  function moneyCny(n) { return "¥" + Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-  function state() {
-    var d = load();
-    if (d) {
-      var kpi = {}, base = C.demo.kpi, k;
-      for (k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) kpi[k] = base[k]; }
-      if (d.kpi && typeof d.kpi === "object") {
-        for (k in d.kpi) { if (Object.prototype.hasOwnProperty.call(d.kpi, k) && isFinite(Number(d.kpi[k]))) kpi[k] = Number(d.kpi[k]); }
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return blank();
+      const d = JSON.parse(raw);
+      const b = blank();
+      ['ops', 'checkbacks', 'knowledge', 'otherStudy', 'bridge', 'sales'].forEach(function (k) {
+        if (!Array.isArray(d[k])) d[k] = b[k];
+      });
+      /* v3: sales 字段升级为 revenueUsd + profitCny + adSpendUsd；旧记录保留值但标记待补利润 */
+      if (Array.isArray(d.sales)) {
+        d.sales.forEach(function (s) {
+          if (s.revenueUsd === undefined && s.revenue !== undefined) s.revenueUsd = s.revenue;
+          if (s.profitCny === undefined) s.profitCny = null;
+          if (s.adSpendUsd === undefined) s.adSpendUsd = '';
+        });
       }
-      var feeds = {}, f;
-      for (f in C.feedDefaults) { if (Object.prototype.hasOwnProperty.call(C.feedDefaults, f)) feeds[f] = !!C.feedDefaults[f]; }
-      if (d.feeds && typeof d.feeds === "object") {
-        for (f in d.feeds) { if (Object.prototype.hasOwnProperty.call(d.feeds, f)) feeds[f] = !!d.feeds[f]; }
-      }
-      return {
-        demo: false,
-        period: d.period || C.demo.period,
-        updatedAt: d.updatedAt || "",
-        kpi: kpi,
-        feeds: feeds
-      };
+      d.version = 3;
+      d.settings = Object.assign({}, b.settings, d.settings || {});
+      d.settings.ai = Object.assign({}, b.settings.ai, (d.settings || {}).ai || {});
+      return d;
+    } catch (e) { return blank(); }
+  }
+  let storageOK = true;
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+    catch (e) { storageOK = false; toast('存储空间不可用，这次记录不会被保存'); }
+  }
+  DB = load();
+
+  /* ---------- UI 状态 ---------- */
+  const UI = {
+    tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know',
+    calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '',
+    form: {
+      opsText: '', opsType: { opt: '广告', src: '看品' }, opsMinutes: '25', opsWatch: false,
+      knowText: '', knowCat: '广告', knowMinutes: '25', knowRule: false,
+      knowNote: '', knowUrl: '', knowEffective: '',
+      otherText: '', otherMinutes: '25', otherNote: '',
+      saleOrders: '', saleRevenue: '', saleProfit: '', saleAd: '', saleAcos: ''
+    },
+    moreOpen: false, settingsOpen: false, fillOpen: null, goalsOpen: false, goalQuick: false,
+    aiBusy: false, lastPraise: {}, aiError: ''
+  };
+
+  /* ---------- 路由 ---------- */
+  const TABS = [
+    { k: 'home', l: '总览', icon: 'home' }, { k: 'sourcing', l: '选品', icon: 'target' },
+    { k: 'listing', l: 'Listing', icon: 'image' }, { k: 'ads', l: '广告', icon: 'ads' },
+    { k: 'data', l: '数据', icon: 'profit' }, { k: 'feedback', l: '反馈', icon: 'db' },
+    { k: 'report', l: '周报', icon: 'home' }
+  ];
+  function validTab(k) { return TABS.some(function (t) { return t.k === k; }); }
+  function parseHash() {
+    const h = (location.hash || '').replace(/^#/, '');
+    if (h.indexOf('feedback') === 0) {
+      return { tab: 'feedback', sub: h.indexOf('learn') >= 0 ? 'learn' : 'ops', view: h.indexOf('src') >= 0 ? 'src' : 'opt', learnSub: h.indexOf('other') >= 0 ? 'other' : 'know' };
     }
-    return { demo: true, period: C.demo.period, updatedAt: "", kpi: C.demo.kpi, feeds: C.feedDefaults };
+    if (validTab(h.split('-')[0])) return { tab: h.split('-')[0] };
+    return { tab: 'home' };
   }
-
-  function toast(msg) {
-    var t = $("#toast");
-    t.textContent = msg;
-    t.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2800);
+  function syncFromHash() {
+    const r = parseHash(); UI.tab = r.tab;
+    if (r.sub) UI.fbSub = r.sub;
+    if (r.view) UI.opsView = r.view;
+    if (r.learnSub) UI.learnSub = r.learnSub;
   }
-
-  function kpiCard(label, val, sub) {
-    return '<div class="kpi"><div class="k-label">' + label + '</div><div class="k-val">' + val + '</div><div class="k-sub">' + sub + "</div></div>";
-  }
-
-  function renderTop(st) {
-    $("#periodBox").innerHTML = '<div class="period"><span class="period-label">账期</span><span class="period-val">' + esc(st.period) + "</span></div>";
-  }
-
-  function renderTabbar() {
-    $("#tabbar").innerHTML = tabs.map(function (t) {
-      return '<button class="tab' + (t.id === curTab ? " on" : "") + '" type="button" data-tab="' + t.id + '">' + icon(t.icon) + "<span>" + esc(t.label) + "</span></button>";
-    }).join("");
-  }
-
-  function renderHome(st) {
-    var k = st.kpi;
-    var badge = st.demo
-      ? '<span class="badge demo">演示数据</span>'
-      : '<span class="badge ready">result.json</span>';
-    var upd = st.demo ? "尚未导入本地计算结果 · 当前为框架演示值" : ("更新于 " + esc(st.updatedAt || "未知时间"));
-
-    var h = "";
-    h += '<div class="card statusbar">';
-    h += '<div><div class="sb-line">' + badge + '<span class="sb-name">数据状态</span></div><div class="sb-sub">' + upd + "</div></div>";
-    h += '<div class="sb-actions"><button class="btn primary" type="button" data-act="import">导入 result.json</button>';
-    if (!st.demo) h += '<button class="btn ghost" type="button" data-act="clear">清除</button>';
-    h += "</div></div>";
-
-    h += '<div class="section-title">本期经营快照 <small>USD · ' + esc(st.period) + "</small></div>";
-    h += '<div class="kpis">';
-    h += kpiCard("销售额", money(k.sales), num(k.asinCount) + " 个在售 ASIN");
-    h += kpiCard("广告花费", money(k.adSpend), "ACOS " + pct(k.acos));
-    h += kpiCard("净利润", money(k.profit), "毛利率 " + pct(k.margin));
-    h += kpiCard("退款率", pct(k.refundRate), "结算口径 · 按 MSKU");
-    h += "</div>";
-
-    h += '<div class="section-title">四个环节 <small>点卡片进入模块</small></div><div class="mods">';
-    h += modules.map(function (m) {
-      return '<button class="mod" type="button" data-tab="' + m.id + '">' +
-        '<span class="mod-ico">' + icon(m.icon) + "</span>" +
-        '<span class="mod-body">' +
-          '<span class="mod-name">' + esc(m.name) +
-            ' <span class="badge ' + m.badgeType + '">' + esc(m.badge) + "</span>" +
-            ' <span class="badge phase">' + esc(m.phase) + "</span>" +
-          "</span>" +
-          '<span class="mod-sum">' + esc(m.summary) + "</span>" +
-          '<span class="mod-meta">' + (m.engine.ready ? "引擎已就绪 · " : "引擎待建 · ") + esc(m.engine.name) + "</span>" +
-        "</span>" +
-        '<span class="mod-arrow">›</span>' +
-      "</button>";
-    }).join("");
-    h += "</div>";
-
-    h += '<div class="section-title">统一数据底座 <small>ASIN / MSKU 主键</small></div>';
-    h += '<div class="card">';
-    h += C.feeds.map(function (f) {
-      var ok = !!st.feeds[f.key];
-      return '<div class="feed"><span class="dot' + (ok ? " ok" : "") + '"></span>' +
-        '<span class="feed-name">' + esc(f.name) + '<br><span class="feed-fmt">' + esc(f.fmt) + "</span></span>" +
-        '<span class="feed-state' + (ok ? " ok" : "") + '">' + (ok ? "已接入" : "待导入") + "</span></div>";
-    }).join("");
-    h += '<div class="db-note">利润模块可直接选 CSV + 成本 XLSX 在浏览器本地核算（无需脚本）；其余模块的汇总结果仍由本地脚本产出 result.json 后导入。文件全程不上传。</div>';
-    h += "</div>";
-
-    h += '<div class="section-title">四条约定 <small>动手前先定好</small></div><div class="card">';
-    h += C.principles.map(function (p) {
-      return '<div class="principle"><b>' + esc(p.t) + "</b> · " + esc(p.d) + "</div>";
-    }).join("");
-    h += "</div>";
-    return h;
-  }
-
-  /* ---------- 利润模块：真实核算引擎界面 ---------- */
-  function renderProfit() {
-    var res = loadProfit();
-    var h = "";
-    h += '<div class="page-head"><span class="ph-ico">' + icon("profit") + '</span><div>' +
-      '<div class="ph-title">利润 <span class="badge ready">引擎已接入</span></div>' +
-      '<div class="ph-sub">本地解析结算 CSV + 成本 XLSX，按 MSKU 算真实利润。文件不上传，结果只存本机。</div></div></div>';
-
-    /* 计算入口 */
-    h += '<div class="card"><div class="card-h">第一步 · 选两份文件并核算</div>' +
-      '<div class="calc-grid">' +
-      '<div class="calc-field"><span class="calc-lab">结算报表 CSV</span>' +
-        '<span class="calc-file" id="csvName">' + esc(pendingCsv ? pendingCsv.name : "未选择") + '</span>' +
-        '<button class="btn" type="button" data-act="pick-csv">选择文件</button></div>' +
-      '<div class="calc-field"><span class="calc-lab">成本表 XLSX</span>' +
-        '<span class="calc-file" id="costName">' + esc(pendingCostRows ? "已就绪" : "未选择") + '</span>' +
-        '<button class="btn" type="button" data-act="pick-cost">选择文件</button></div>' +
-      '<div class="calc-field"><span class="calc-lab">汇率 USD→CNY</span>' +
-        '<input class="calc-input" id="fxInput" type="number" step="0.0001" min="0" value="6.7141"></div>' +
-      '</div>' +
-      '<div class="calc-actions"><button class="btn primary" type="button" data-act="run-profit"' +
-      (computing ? ' disabled' : '') + '>' + (computing ? "核算中…" : "开始核算") + '</button>' +
-      '<span class="calc-hint">成本表需含 sku / 成本 / 空运头程 三列；解析全在本地浏览器完成。</span></div></div>';
-
-    if (!res) {
-      h += '<div class="placeholder">' + icon("profit") +
-        '<div class="ph-big">还没有核算结果</div>' +
-        '<p>选好两份文件、填汇率，点「开始核算」即可。用你 11 月的报表试一次，几秒出结果。</p></div>';
-      h += '<div class="note">口径：订单结算 13 项带符号求和，减采购成本与空运头程；提现（Debt/Transfer）不计入费用；广告费、Vine、仓储等非订单费用单列。汇率写进结果，不随打开时间变化。</div>';
-      return h;
+  function go(tab, extra) {
+    if (!validTab(tab)) return;
+    UI.tab = tab;
+    if (extra === 'src' || extra === 'opt') { UI.opsView = extra; UI.fbSub = 'ops'; }
+    if (extra === 'know' || extra === 'other') { UI.learnSub = extra; UI.fbSub = 'learn'; }
+    if (extra === 'ops' || extra === 'learn') UI.fbSub = extra;
+    let h = '#' + tab;
+    if (tab === 'feedback') {
+      if (UI.fbSub === 'learn') h += '-learn' + (UI.learnSub === 'other' ? '-other' : '');
+      else if (UI.opsView === 'src') h += '-ops-src';
     }
-
-    /* 结果：汇总 */
-    var s = res.summary;
-    h += '<div class="section-title">核算结果 <small>' + esc(res.period || "本次报表") + ' · 汇率 ' + s.fx + '</small></div>';
-    h += '<div class="kpis">';
-    h += kpiCard("成交额 USD", money(s.grossUsd), num(s.orders) + " 单 · " + num(s.daysWithOrders) + " 天有单");
-    h += kpiCard("订单利润 CNY", moneyCny(s.orderProfitCny), "单均 " + moneyCny(s.avgProfitPerOrder));
-    h += kpiCard("非订单费用 USD", money(s.otherUsd), "广告 " + money(s.adUsd) + " · ACOS " + pct((s.acosPct || 0) / 100));
-    h += kpiCard("全口径到手 CNY", moneyCny(s.profitCny), "扣采购 " + moneyCny(s.costCny) + " + 头程 " + moneyCny(s.freightCny));
-    h += '</div>';
-
-    /* 按天明细 */
-    h += '<div class="section-title">按天明细 <small>订单利润 = 结算×汇率 − 采购 − 头程</small></div>';
-    h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>日期</th><th>单</th><th>销售额$</th><th>结算$</th><th>订单利润¥</th><th>到手¥</th></tr></thead><tbody>';
-    res.daily.slice().reverse().forEach(function (d) {
-      h += '<tr><td class="mono">' + esc(d.date.slice(5)) + '</td><td>' + num(d.orders) + '</td>' +
-        '<td>' + money(d.grossUsd) + '</td><td>' + money(d.settleUsd) + '</td>' +
-        '<td>' + moneyCny(d.orderProfitCny) + '</td><td>' + moneyCny(d.profitCny) + '</td></tr>';
-    });
-    h += '</tbody></table></div></div>';
-
-    /* 按 MSKU */
-    h += '<div class="section-title">按 MSKU <small>利润主键</small></div>';
-    h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>MSKU</th><th>件</th><th>结算$</th><th>成本¥</th><th>利润¥</th><th>单件¥</th></tr></thead><tbody>';
-    res.bySku.forEach(function (x) {
-      h += '<tr><td class="mono">' + esc(x.sku) + '</td><td>' + num(x.units) + '</td>' +
-        '<td>' + money(x.settleUsd) + '</td><td>' + moneyCny(x.costCny + x.freightCny) + '</td>' +
-        '<td>' + moneyCny(x.profitCny) + '</td><td>' + moneyCny(x.profitPerUnit) + '</td></tr>';
-    });
-    h += '</tbody></table></div></div>';
-
-    /* 数据质量 */
-    var warn = [];
-    if (res.cost && res.cost.dup) warn.push("成本表有 " + res.cost.dup + " 个重复 SKU，取最后一条");
-    if (res.missingCostSkus && res.missingCostSkus.length) warn.push("缺成本的 SKU：" + res.missingCostSkus.join("、"));
-    if (res.transfers && res.transfers.length) warn.push("已排除 " + res.transfers.length + " 笔提现（未计入费用）");
-    warn.push("成本表 " + (res.cost ? res.cost.count : 0) + " 个 SKU，解析全在本地完成");
-    h += '<div class="card"><div class="card-h">数据质量</div><ul class="list">';
-    warn.forEach(function (w) { h += '<li>' + esc(w) + '</li>'; });
-    h += '</ul></div>';
-    h += '<button class="btn ghost" type="button" data-act="clear-profit" style="width:100%">清除核算结果</button>';
-    return h;
-  }
-
-  function renderModule(id, st) {
-    var m = findModule(id);
-    var h = "";
-    h += '<div class="page-head"><span class="ph-ico">' + icon(m.icon) + "</span><div>" +
-      '<div class="ph-title">' + esc(m.name) +
-        ' <span class="badge ' + m.badgeType + '">' + esc(m.badge) + "</span>" +
-        ' <span class="badge phase">' + esc(m.phase) + " 阶段</span></div>" +
-      '<div class="ph-sub">' + esc(m.summary) + "</div></div></div>";
-
-    h += '<div class="card"><div class="card-h">这一块会做什么</div><ul class="list">';
-    h += m.todos.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
-    h += "</ul></div>";
-
-    h += '<div class="card"><div class="card-h">需要的数据</div><table class="tbl"><thead><tr><th>数据源</th><th>格式</th><th>状态</th></tr></thead><tbody>';
-    h += m.inputs.map(function (i) {
-      return "<tr><td>" + esc(i.name) + '</td><td class="mono">' + esc(i.fmt) + "</td><td>" + esc(i.state) + "</td></tr>";
-    }).join("");
-    h += "</tbody></table></div>";
-
-    h += '<div class="card"><div class="card-h">分析引擎</div><div class="engine">' +
-      '<span class="engine-name">' + esc(m.engine.name) + "</span>" +
-      '<span class="badge ' + (m.engine.ready ? "ready" : "todo") + '">' + (m.engine.ready ? "已就绪" : "待建") + "</span>" +
-      '<span class="engine-note">' + esc(m.engineNote) + "</span></div></div>";
-
-    h += '<div class="placeholder">' + icon(m.icon) +
-      '<div class="ph-big">' + esc(m.name) + " 模块内容区</div>" +
-      "<p>框架版先占位，实际图表与清单在 " + esc(m.phase) + " 阶段填充</p></div>";
-
-    h += '<div class="note">' + esc(m.note) + "</div>";
-    h += '<button class="btn back-btn" type="button" data-tab="home">返回总览</button>';
-    return h;
-  }
-
-  function renderFoot() {
-    $("#foot").innerHTML = "亚马逊工作台 · 框架版 v0.1<br>本地计算，数据留在本机 · 无服务器 / 无订阅 / 零依赖";
-  }
-
-  function renderAll() {
-    var st = state();
-    renderTop(st);
-    renderTabbar();
-    if (curTab === "home") $("#view").innerHTML = renderHome(st);
-    else if (curTab === "profit") $("#view").innerHTML = renderProfit();
-    else $("#view").innerHTML = renderModule(curTab, st);
-    renderFoot();
-  }
-
-  function go(id) {
-    if (!validTab(id)) return;
-    curTab = id;
-    try { history.replaceState(null, "", "#" + id); } catch (e) { location.hash = id; }
-    renderAll();
+    try { history.replaceState(null, '', h); } catch (e) { location.hash = h; }
+    UI.fillOpen = null; renderAll();
     window.scrollTo(0, 0);
   }
 
-  document.addEventListener("click", function (e) {
-    var tabEl = e.target.closest ? e.target.closest("[data-tab]") : null;
-    if (tabEl) { go(tabEl.getAttribute("data-tab")); return; }
-    var actEl = e.target.closest ? e.target.closest("[data-act]") : null;
-    if (!actEl) return;
-    var act = actEl.getAttribute("data-act");
-    if (act === "import") { $("#fileInput").click(); }
-    if (act === "clear") { clearData(); toast("已清除，回到演示数据"); renderAll(); }
-    if (act === "pick-csv") { $("#csvInput").click(); }
-    if (act === "pick-cost") { $("#costInput").click(); }
-    if (act === "run-profit") { runProfit(); }
-    if (act === "clear-profit") {
-      try { localStorage.removeItem(PROFIT_KEY); } catch (e) {}
-      pendingCsv = null; pendingCostRows = null;
-      toast("已清除核算结果"); renderAll();
-    }
-  });
-
-  function runProfit() {
-    if (!pendingCsv) { toast("先选结算报表 CSV"); return; }
-    if (!pendingCostRows) { toast("先选成本表 XLSX"); return; }
-    var fx = parseFloat($("#fxInput").value);
-    if (!fx || fx <= 0) { toast("汇率要填大于 0 的数字"); return; }
-    computing = true; renderAll();
-    setTimeout(function () {
-      try {
-        var result = window.ProfitEngine.analyze(pendingCsv.text, pendingCostRows, fx);
-        var period = (result.daily.length ? result.daily[0].date.slice(0, 7) : "本次报表");
-        result.period = period;
-        result.generatedAt = new Date().toLocaleString("zh-CN", { hour12: false });
-        saveProfit(result);
-        toast("核算完成：" + result.summary.orders + " 单，订单利润 " + moneyCny(result.summary.orderProfitCny));
-      } catch (e) {
-        toast("核算失败：" + e.message);
-      }
-      computing = false; renderAll();
-    }, 30);
+  /* ---------- 反馈语料选择 ---------- */
+  function pickPraise(list, state, unit) {
+    const avail = [];
+    list.forEach(function (f) { const t = f(state); if (t) avail.push(t); });
+    if (!avail.length) return CONTENT.EMPTY[unit];
+    let pool = avail.filter(function (t) { return t !== UI.lastPraise[unit]; });
+    if (!pool.length) pool = avail;
+    const seed = sum(today().split('-').map(Number)) + (state.todayCount || 0) * 3 + (state.weekCount || 0) + (state.todayOrders || 0);
+    let text = pool[seed % pool.length];
+    if (text === UI.lastPraise[unit] && pool.length > 1) text = pool[(seed + 1) % pool.length];
+    UI.lastPraise[unit] = text;
+    return text;
+  }
+  function coldenType() {
+    const all = CONTENT.OPS_TYPES.opt.concat(CONTENT.OPS_TYPES.src);
+    let best = null;
+    all.forEach(function (t) {
+      const hit = DB.ops.filter(function (o) { return o.type === t; })
+        .sort(function (a, b) { return b.createdAt - a.createdAt; })[0];
+      if (!hit) return; /* 从没做过的类型不算「冷落」，避免新用户收到无意义的提醒 */
+      const d = daysBetween(hit.createdAt);
+      if (!best || d > best.days) best = { type: t, days: d };
+    });
+    if (best && best.days >= 5) return { type: best.type, days: best.days };
+    return null;
+  }
+  function opsState() {
+    const t = today();
+    const td = DB.ops.filter(function (o) { return dkey(o.createdAt) === t; });
+    const wk = DB.ops.filter(function (o) { return inWeek(o.createdAt); });
+    const yd = DB.ops.filter(function (o) { return dkey(o.createdAt) === daysAgoKey(1); });
+    const typesToday = [];
+    td.forEach(function (o) { if (typesToday.indexOf(o.type) < 0) typesToday.push(o.type); });
+    const weekTypes = [];
+    wk.forEach(function (o) { if (weekTypes.indexOf(o.type) < 0) weekTypes.push(o.type); });
+    const cold = coldenType();
+    const longest = td.slice().sort(function (a, b) { return (b.minutes || 0) - (a.minutes || 0); })[0];
+    const pending = DB.checkbacks.filter(function (c) { return c.status === 'pending' && c.dueAt <= Date.now(); }).length;
+    const done = DB.checkbacks.filter(function (c) { return c.status === 'done' && inWeek(c.filledAt || 0); }).length;
+    const vc = { opt: 0, src: 0 };
+    wk.forEach(function (o) { vc[o.view] = (vc[o.view] || 0) + 1; });
+    const rejected = wk.filter(function (o) { return o.type === '否决'; }).length;
+    const bridgedToday = td.filter(function (o) { return o.fromKnow; }).length;
+    return {
+      todayCount: td.length, todayMinutes: minutesOf(td), typesToday: typesToday,
+      yesterdayCount: yd.length, weekCount: wk.length, weekMinutes: minutesOf(wk),
+      weekTypes: weekTypes, weekViewCounts: vc, weekRejected: rejected,
+      streak: activeDays(DB.ops), pendingChecks: pending, doneChecks: done,
+      longestItem: longest, coldType: cold && cold.type, coldDays: cold && cold.days,
+      coldView: wk.length ? (vc.opt === 0 ? '在营优化' : (vc.src === 0 ? '选品开发' : null)) : null,
+      bridgedToday: bridgedToday, goalOps: DB.settings.goalOps,
+      lastText: td.length ? td[td.length - 1].text : ''
+    };
+  }
+  function weekOpsForCat(cat) {
+    const map = KNOW_TO_OPS[cat];
+    if (!map) return 0;
+    return DB.ops.filter(function (o) { return inWeek(o.createdAt) && map.types.indexOf(o.type) >= 0; }).length;
+  }
+  function knowState() {
+    const t = today();
+    const td = DB.knowledge.filter(function (k) { return dkey(k.createdAt) === t; });
+    const wk = DB.knowledge.filter(function (k) { return inWeek(k.createdAt); });
+    const cats = []; wk.forEach(function (k) { if (cats.indexOf(k.cat) < 0) cats.push(k.cat); });
+    let gap = null, matched = null;
+    cats.forEach(function (c) {
+      const n = wk.filter(function (k) { return k.cat === c; }).length;
+      if (weekOpsForCat(c) === 0 && (!gap || n > gap.n)) gap = { cat: c, n: n };
+      if (weekOpsForCat(c) > 0 && !matched) matched = c;
+    });
+    const due = DB.knowledge.filter(function (k) { return k.isRule && !k.reviewedAt && k.reviewAt && k.reviewAt <= Date.now(); }).length;
+    const bridged = DB.bridge.length;
+    const bridgedDone = DB.bridge.filter(function (b) {
+      return DB.checkbacks.some(function (c) { return c.actionId === b.actionId && c.status === 'done'; });
+    }).length;
+    return {
+      todayCount: td.length, todayMinutes: minutesOf(td), weekCount: wk.length,
+      weekMinutes: minutesOf(wk), weekCats: cats, streak: activeDays(DB.knowledge),
+      gapCat: gap && gap.cat, gapCatCount: gap && gap.n, matchedCat: matched,
+      dueReviews: due, bridged: bridged, bridgedDone: bridgedDone,
+      ruleCount: wk.filter(function (k) { return k.isRule; }).length,
+      goalKnow: DB.settings.goalKnow
+    };
+  }
+  function otherState() {
+    const t = today();
+    const td = DB.otherStudy.filter(function (o) { return dkey(o.createdAt) === t; });
+    const wk = DB.otherStudy.filter(function (o) { return inWeek(o.createdAt); });
+    return {
+      todayCount: td.length, todayMinutes: minutesOf(td), weekCount: wk.length,
+      weekMinutes: minutesOf(wk), streak: activeDays(DB.otherStudy),
+      noteCount: wk.filter(function (o) { return o.note; }).length,
+      goalOther: DB.settings.goalOther
+    };
   }
 
-  $("#csvInput").addEventListener("change", function (e) {
-    var f = e.target.files && e.target.files[0];
-    if (!f) return;
-    var r = new FileReader();
-    r.onload = function () {
-      pendingCsv = { name: f.name, text: String(r.result || "") };
-      toast("结算报表已就绪"); renderAll();
+  /* ---------- 数据页：目标反推（真实利润口径） ---------- */
+  function salesState() {
+    const st = DB.settings;
+    const goal = Number(st.monthlyProfitGoal) || 3000;
+    const fixed = Number(st.monthlyFixedCost) || 0;
+    const warn = Number(st.acosWarn) || 30;
+    const fx = Number(st.fx) || 6.7141;
+    const mk = thisMonthKey();
+    const monthRows = DB.sales.filter(function (s) { return monthKey(s.date) === mk; });
+    const byDate = {};
+    monthRows.forEach(function (s) { byDate[s.date] = s; });
+    const todayKey = today();
+    const td = byDate[todayKey] || null;
+    const sumOrders = sum(monthRows.map(function (s) { return Number(s.orders) || 0; }));
+    const monthRevenue = sum(monthRows.map(function (s) { return Number(s.revenueUsd) || 0; }));
+    /* 订单口径利润：有真实利润用真实值；旧记录缺利润则按「结算额×汇率」粗估并标记 */
+    const profitOf = function (s) {
+      if (s.profitCny !== null && s.profitCny !== undefined && s.profitCny !== '') return Number(s.profitCny) || 0;
+      return (Number(s.revenueUsd) || 0) * fx * 0.28;
     };
-    r.onerror = function () { toast("CSV 读取失败"); };
-    r.readAsText(f, "UTF-8");
-    e.target.value = "";
-  });
+    const monthProfit = round2(sum(monthRows.map(profitOf)));
+    const realProfit = round2(monthProfit - fixed);
+    const logDays = monthRows.filter(function (s) { return (Number(s.orders) || 0) > 0 || profitOf(s) !== 0; }).length;
+    /* 近 14 天真实单均利润 */
+    let ord14 = 0, prof14 = 0, rev14 = 0;
+    for (let i = 0; i < 14; i++) {
+      const row = DB.sales.filter(function (s) { return s.date === daysAgoKey(i); })[0];
+      if (row) { ord14 += Number(row.orders) || 0; prof14 += profitOf(row); rev14 += Number(row.revenueUsd) || 0; }
+    }
+    const canEstimate = ord14 > 0;
+    const aov = canEstimate ? round2(rev14 / ord14) : 0;
+    const profitPerOrder = canEstimate ? round2(prof14 / ord14) : 0;
+    const d = new Date();
+    const daysLeft = daysInMonth() - d.getDate() + 1;
+    /* 今日目标线只看「截止昨天」的累计（全口径），今天录多少都不改变目标 */
+    const todayProfitRaw = td ? profitOf(td) : 0;
+    const prevProfit = round2(monthProfit - todayProfitRaw - fixed);
+    const gap = Math.max(0, goal - prevProfit);
+    const needReached = gap <= 0;
+    const needToday = needReached ? 0 : round2(gap / daysLeft);
+    const needOrders = (canEstimate && profitPerOrder > 0 && needToday > 0)
+      ? Math.ceil(needToday / profitPerOrder) : 0;
+    const pct = goal > 0 ? Math.min(100, Math.round(realProfit / goal * 100)) : 0;
+    const todayOrders = td ? (Number(td.orders) || 0) : 0;
+    const todayRevenue = td ? (Number(td.revenueUsd) || 0) : 0;
+    const todayProfit = round2(todayProfitRaw);
+    const acos = td && td.acos !== '' && td.acos != null ? (Number(td.acos) || 0) : null;
+    /* 广告建议：前 3 天（不含今天）日均花费 + ACOS，稳健型规则 */
+    let ad3 = [];
+    for (let i = 1; i <= 3; i++) {
+      const row = DB.sales.filter(function (s) { return s.date === daysAgoKey(i); })[0];
+      if (row && row.adSpendUsd !== '' && row.adSpendUsd != null) ad3.push(row);
+    }
+    const ad3Count = ad3.length;
+    const ad3Sum = sum(ad3.map(function (s) { return Number(s.adSpendUsd) || 0; }));
+    const ad3Rev = sum(ad3.map(function (s) { return Number(s.revenueUsd) || 0; }));
+    const ad3Avg = ad3Count ? round2(ad3Sum / ad3Count) : 0;
+    const ad3Acos = ad3Rev > 0 ? round2(ad3Sum / ad3Rev * 100) : null;
+    /* 目标 ACOS = 警戒线；前3天优于目标+10%预算，超标-20%；ACOS要求收紧到目标线 */
+    const acosTarget = warn;
+    let adBudget = null, adAction = 'none';
+    if (ad3Count >= 3) {
+      const good = ad3Acos !== null && ad3Acos <= acosTarget;
+      adBudget = round2(ad3Avg * (good ? 1.10 : 0.80));
+      adAction = good ? 'up' : 'down';
+    } else if (ad3Count > 0 && ad3Avg > 0) {
+      adBudget = ad3Avg; adAction = 'partial';
+    }
+    return {
+      goal: goal, fixed: fixed, warn: warn, fx: fx, monthRevenue: round2(monthRevenue),
+      monthProfit: monthProfit, realProfit: realProfit, monthOrders: sumOrders,
+      logDays: logDays, pct: pct, daysLeft: daysLeft, needToday: needToday,
+      needOrders: needOrders, needReached: needReached, canEstimate: canEstimate,
+      aov: aov, profitPerOrder: profitPerOrder, hasToday: !!td, todayOrders: todayOrders,
+      todayRevenue: round2(todayRevenue), todayProfit: todayProfit, acos: acos,
+      todayNeed: needToday, monthRows: monthRows, todayKey: todayKey,
+      ad3Count: ad3Count, ad3Avg: ad3Avg, ad3Acos: ad3Acos,
+      adBudget: adBudget, adAction: adAction, acosTarget: acosTarget
+    };
+  }
+  function saveSale() {
+    const f = UI.form;
+    const orders = Math.max(0, Number(f.saleOrders));
+    const revenue = Math.max(0, Number(f.saleRevenue));
+    const profitRaw = String(f.saleProfit || '').trim();
+    const adRaw = String(f.saleAd || '').trim();
+    const acosRaw = String(f.saleAcos || '').trim();
+    const profit = profitRaw === '' ? '' : Number(profitRaw);
+    const ad = adRaw === '' ? '' : Math.max(0, Number(adRaw));
+    const acos = acosRaw === '' ? '' : Math.max(0, Number(acosRaw));
+    if (!f.saleOrders && !f.saleRevenue && profitRaw === '') { toast('至少填订单数、销售额或利润'); return; }
+    if (isNaN(orders) || isNaN(revenue) || (profit !== '' && isNaN(profit))) { toast('数字格式不对'); return; }
+    const key = today();
+    const old = DB.sales.filter(function (s) { return s.date === key; })[0];
+    const payload = { orders: orders, revenueUsd: revenue, profitCny: profit, adSpendUsd: ad, acos: acos };
+    if (old) { Object.assign(old, payload); old.updatedAt = Date.now(); }
+    else DB.sales.push(Object.assign({ id: uid(), date: key, createdAt: Date.now(), updatedAt: Date.now() }, payload));
+    f.saleOrders = ''; f.saleRevenue = ''; f.saleProfit = ''; f.saleAd = ''; f.saleAcos = '';
+    save(); renderAll();
+    toast(old ? '今天这笔已更新' : '已记下，今日目标已重算');
+  }
+  function delSale(date) {
+    if (!window.confirm('删除 ' + date + ' 这一天的记录？')) return;
+    DB.sales = DB.sales.filter(function (s) { return s.date !== date; });
+    save(); renderAll(); toast('已删除');
+  }
 
-  $("#costInput").addEventListener("change", function (e) {
-    var f = e.target.files && e.target.files[0];
-    if (!f) return;
-    var r = new FileReader();
+  /* ---------- 业务动作 ---------- */
+  function addWatchFor(action) {
+    CONTENT.CHECK_DAYS.forEach(function (d) {
+      DB.checkbacks.push({
+        id: uid(), actionId: action.id, day: d, dueAt: action.createdAt + d * DAY,
+        status: 'pending', metrics: [], note: '', filledAt: 0
+      });
+    });
+  }
+  function addOps() {
+    const f = UI.form;
+    const text = (f.opsText || '').trim();
+    if (!text) { toast('先写一句做了什么'); return; }
+    const view = UI.opsView;
+    const type = f.opsType[view] || CONTENT.OPS_TYPES[view][0];
+    const minutes = Math.max(0, Number(f.opsMinutes) || 0);
+    const action = {
+      id: uid(), text: text, view: view, type: type, minutes: minutes,
+      createdAt: Date.now(), watch: !!f.opsWatch, fromKnow: false
+    };
+    DB.ops.push(action);
+    if (action.watch) addWatchFor(action);
+    f.opsText = ''; f.opsWatch = false;
+    save(); renderAll();
+    toast(action.watch ? '已记下，并排进第 3 / 7 天回看' : '已记下，这条动作有回音了');
+  }
+  function addKnow() {
+    const f = UI.form;
+    const text = (f.knowText || '').trim();
+    if (!text) { toast('先写一句学到了什么'); return; }
+    const isRule = !!f.knowRule;
+    DB.knowledge.push({
+      id: uid(), text: text, cat: f.knowCat || CONTENT.KNOW_CATS[0],
+      minutes: Math.max(0, Number(f.knowMinutes) || 0),
+      note: (f.knowNote || '').trim(), sourceUrl: (f.knowUrl || '').trim(),
+      effectiveDate: f.knowEffective || '', isRule: isRule,
+      reviewAt: isRule ? Date.now() + CONTENT.RULE_REVIEW_DAYS * DAY : 0,
+      reviewedAt: 0, reviewResult: '', isReview: false, createdAt: Date.now()
+    });
+    f.knowText = ''; f.knowNote = ''; f.knowUrl = ''; f.knowEffective = '';
+    f.knowRule = false; UI.moreOpen = false;
+    save(); renderAll(); toast('已记下，这条知识归到本区');
+  }
+  function addOther() {
+    const f = UI.form;
+    const text = (f.otherText || '').trim();
+    if (!text) { toast('先写一句学了什么'); return; }
+    DB.otherStudy.push({
+      id: uid(), text: text, minutes: Math.max(0, Number(f.otherMinutes) || 0),
+      note: (f.otherNote || '').trim(), createdAt: Date.now()
+    });
+    f.otherText = ''; f.otherNote = '';
+    save(); renderAll(); toast('已记下，这一区不跟业务比');
+  }
+  function sendToOps(kid) {
+    const k = DB.knowledge.filter(function (x) { return x.id === kid; })[0];
+    if (!k) return;
+    if (DB.bridge.some(function (b) { return b.kid === kid; })) { toast('这条已经送过去了'); return; }
+    const map = KNOW_TO_OPS[k.cat] || { view: 'opt', types: ['竞品监控'] };
+    const action = {
+      id: uid(), text: '验证：' + k.text, view: map.view, type: map.types[0],
+      minutes: 0, createdAt: Date.now(), watch: true, fromKnow: true
+    };
+    DB.ops.push(action); addWatchFor(action);
+    DB.bridge.push({ id: uid(), kid: kid, actionId: action.id, createdAt: Date.now() });
+    save(); renderAll(); toast('已生成经营页待验证动作，7 天后回看');
+  }
+  function doReview(id, result) {
+    const k = DB.knowledge.filter(function (x) { return x.id === id; })[0];
+    if (!k) return;
+    k.reviewedAt = Date.now(); k.reviewResult = result;
+    DB.knowledge.push({
+      id: uid(), text: '复核：' + k.text + ' → ' + result, cat: k.cat, minutes: 0,
+      note: '', sourceUrl: '', effectiveDate: '', isRule: true,
+      reviewAt: Date.now() + CONTENT.RULE_REVIEW_DAYS * DAY,
+      reviewedAt: 0, reviewResult: '', isReview: true, createdAt: Date.now()
+    });
+    save(); renderAll(); toast('复核记下了，算一条有效记录');
+  }
+  function saveFill(id) {
+    const c = DB.checkbacks.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    const metrics = [], notes = [];
+    CONTENT.METRICS.forEach(function (m) {
+      const b = document.querySelector('[data-fill-b="' + m.k + '"]');
+      const a = document.querySelector('[data-fill-a="' + m.k + '"]');
+      if (!b || !a) return;
+      const bv = parseFloat(b.value), av = parseFloat(a.value);
+      if (isNaN(bv) || isNaN(av)) return;
+      metrics.push({ k: m.k, label: m.label, before: bv, after: av });
+      const diff = av - bv;
+      let dtext;
+      if (diff === 0) dtext = '基本没变';
+      else dtext = (diff > 0 ? '升了 ' : '降了 ') + Math.abs(diff).toFixed(m.digits) + (m.suffix === '%' ? ' pt' : '');
+      const bs = bv.toFixed(m.digits) + m.suffix, as = av.toFixed(m.digits) + m.suffix;
+      notes.push(CONTENT.CHECK_NOTE[c.day](m.label, bs, as, dtext));
+    });
+    if (!metrics.length) { toast('至少填一组调整前后的数字'); return; }
+    c.metrics = metrics; c.note = notes.join('\n'); c.status = 'done'; c.filledAt = Date.now();
+    UI.fillOpen = null; save(); renderAll(); toast('已回填，只陈述变化，不替你判断因果');
+  }
+
+  /* ---------- 周报 ---------- */
+  function weekData() {
+    return {
+      week: weekKeys()[0] + ' ~ ' + weekKeys()[6],
+      ops: DB.ops.filter(function (o) { return inWeek(o.createdAt); })
+        .map(function (o) { return { 日期: dkey(o.createdAt), 视图: o.view === 'opt' ? '在营优化' : '选品开发', 类型: o.type, 内容: o.text, 分钟: o.minutes, 已回看: !!o.watch }; }),
+      checkbacks: DB.checkbacks.filter(function (c) { return c.status === 'done' && inWeek(c.filledAt || 0); })
+        .map(function (c) { return { 第几天: c.day, 结论: c.note }; }),
+      pendingChecks: DB.checkbacks.filter(function (c) { return c.status === 'pending' && c.dueAt <= Date.now(); }).length,
+      knowledge: DB.knowledge.filter(function (k) { return inWeek(k.createdAt); })
+        .map(function (k) { return { 日期: dkey(k.createdAt), 分类: k.cat, 内容: k.text, 分钟: k.minutes, 规则类: !!k.isRule }; }),
+      otherStudy: DB.otherStudy.filter(function (o) { return inWeek(o.createdAt); })
+        .map(function (o) { return { 日期: dkey(o.createdAt), 内容: o.text, 分钟: o.minutes, 有自己的理解: !!o.note }; }),
+      bridge: DB.bridge.length,
+      dueReviews: DB.knowledge.filter(function (k) { return k.isRule && !k.reviewedAt && k.reviewAt && k.reviewAt <= Date.now(); }).length,
+      workbench: (function () {
+        const wb = wbState(), pf = profitLoad(), sd = salesState();
+        return {
+          period: wb.period, demo: wb.demo, kpi: wb.kpi,
+          modules: ['sourcing', 'listing', 'ads'].map(function (id) {
+            const m = CONTENT.WB_MODULES[id];
+            return { name: m.name, phase: m.phase, engineReady: !!(m.engine && m.engine.ready) };
+          }),
+          profit: pf ? pf.summary : null,
+          dataGoal: { goal: sd.goal, monthProfit: sd.monthProfit, realProfit: sd.realProfit, pct: sd.pct, needToday: sd.needToday, needOrders: sd.needOrders, daysLeft: sd.daysLeft }
+        };
+      })()
+    };
+  }
+  function buildRuleReport() {
+    const d = weekData(), s = opsState(), k = knowState(), o = otherState(), sd = salesState();
+    const types = []; d.ops.forEach(function (x) { if (types.indexOf(x.类型) < 0) types.push(x.类型); });
+    const cats = []; d.knowledge.forEach(function (x) { if (cats.indexOf(x.分类) < 0) cats.push(x.分类); });
+    const wb = wbState(), pf = profitLoad();
+    /* 一、工作台与利润核算 */
+    const sec0 = [];
+    sec0.push('一、工作台与利润\n总览账期 ' + wb.period + '，' + (wb.demo ? '仍是演示数据，可用本地 result.json 导入真实汇总。' : '已导入本地计算结果。'));
+    ['sourcing', 'listing', 'ads'].forEach(function (id) {
+      const m = CONTENT.WB_MODULES[id];
+      if (m && m.engine) sec0.push(m.name + '模块：' + (m.engine.ready ? '引擎就绪（' + m.engine.name + '）' : '待接入（' + m.engine.name + '）') + '，' + m.todos.length + ' 项待办。');
+    });
+    if (pf) {
+      sec0.push('利润核算已跑：' + pf.summary.orders + ' 单，成交额 ' + fmtMoney(pf.summary.grossUsd) + '，订单利润 ¥' + Math.round(pf.summary.orderProfitCny).toLocaleString('zh-CN') + '，扣非订单费后到手 ¥' + Math.round(pf.summary.profitCny).toLocaleString('zh-CN') + '。');
+      if (pf.missingCostSkus && pf.missingCostSkus.length) sec0.push('有 ' + pf.missingCostSkus.length + ' 个 SKU 缺成本，利润可能被高估。');
+    } else sec0.push('本月还没跑过报表核算，可在「数据」页选两份报表本地算一次。');
+    sec0.push('下周一个小动作：把利润核算结果送入数据页，让每日目标用真实利润口径。');
+    /* 二、经营 */
+    const a = [];
+    a.push('二、经营\n本周共 ' + d.ops.length + ' 条可控动作、' + s.weekMinutes + ' 分钟，覆盖 ' + (types.length ? types.join('、') : '暂无') + '。在营优化 ' + s.weekViewCounts.opt + ' 条、选品开发 ' + s.weekViewCounts.src + ' 条。');
+    a.push(s.coldType ? (s.coldType + ' 已经 ' + s.coldDays + ' 天没有动作，是有意搁置还是漏了，值得确认一下。') : '各条线本周都有动作，没有明显空档。');
+    a.push(s.weekRejected ? ('本周否决 ' + s.weekRejected + ' 个品，这些否决同样算推进。') : '本周没有记录到否决的品。');
+    a.push(d.checkbacks.length ? ('拿到回填数据的调整 ' + d.checkbacks.length + ' 项：' + d.checkbacks.map(function (c) { return c.结论.replace(/\n/g, ' '); }).join(' / ')) : '本周还没有回填过回看数据。');
+    a.push(d.pendingChecks ? ('还有 ' + d.pendingChecks + ' 项到了回填时间，数据回来才算闭环。') : '到期的回看都处理完了。');
+    a.push('下周一个小动作：挑 ' + (s.coldType || '广告') + ' 留 20 分钟，做完当场记一条。');
+    /* 三、数据目标 */
+    const dd = [];
+    dd.push('三、数据目标\n本月订单利润 ¥' + sd.monthProfit + '，扣月固定成本 ¥' + sd.fixed + ' 后真实到手 ¥' + sd.realProfit + ' / ¥' + sd.goal + '（' + sd.pct + '%）。');
+    dd.push(sd.needReached ? ('本月到手目标已达成。') : ('按剩余 ' + sd.daysLeft + ' 天，今天需赚 ¥' + sd.needToday + (sd.canEstimate ? '、约 ' + sd.needOrders + ' 单' : '') + '。'));
+    dd.push('本月已记 ' + sd.logDays + ' 天数据；近 14 天真实单均利润 ¥' + sd.profitPerOrder + '。' + (sd.ad3Count >= 3 ? ('前 3 天广告日均 $' + sd.ad3Avg + '、ACOS ' + (sd.ad3Acos === null ? '—' : sd.ad3Acos + '%') + '。') : '广告数据不足 3 天，暂不给预算建议。'));
+    dd.push('下周一个小动作：每天填三格真实利润，让目标缺口按真实进度走。');
+    /* 四、亚马逊知识 */
+    const b = [];
+    b.push('四、亚马逊知识\n本区本周 ' + d.knowledge.length + ' 条、' + k.weekMinutes + ' 分钟，覆盖 ' + (cats.length ? cats.join('、') : '暂无') + '。');
+    b.push(k.gapCat ? ('学用脱节：' + k.gapCat + ' 记了 ' + k.gapCatCount + ' 条，但经营页本周没有对应动作。挑一条送过去验证，7 天后就有回音。') : (k.matchedCat ? ('本周 ' + k.matchedCat + ' 既学了也做了，闭环是通的。') : '本周还没有可以对照的学习记录。'));
+    b.push('已送去经营页验证 ' + k.bridged + ' 条，其中 ' + k.bridgedDone + ' 条拿到了回填数据。');
+    b.push(k.dueReviews ? ('有 ' + k.dueReviews + ' 条规则类知识到期复核，平台规则会变，回来记一句「仍有效 / 已改」即可。') : '规则复核队列没有逾期项。');
+    b.push('下周一个小动作：把本周最有用的一条结论送进经营页，别让它停在「知道」。');
+    /* 五、其他学习 */
+    const c = [];
+    c.push('五、其他学习\n本周 ' + d.otherStudy.length + ' 条、' + o.weekMinutes + ' 分钟，其中 ' + o.noteCount + ' 条写了自己的理解。');
+    c.push('这一区只看掌握度，不产生业务回音，也不跟经营页比较。');
+    c.push('下周一个小动作：保持现在的节奏就够了，不必加量。');
+    return [sec0.join('\n'), a.join('\n'), dd.join('\n'), b.join('\n'), c.join('\n')];
+  }
+  function currentReport() {
+    const wk = weekKeys()[0];
+    if (DB.reportCache && DB.reportCache.week === wk && DB.reportCache.sections && DB.reportCache.sections.length === 5 && DB.reportCache.by === 'ai') {
+      return DB.reportCache.sections;
+    }
+    return buildRuleReport();
+  }
+  async function runAI() {
+    const ai = DB.settings.ai;
+    if (!ai.key) { toast('先在下方设置里填模型 key，或者直接用规则版周报'); UI.settingsOpen = true; renderAll(); return; }
+    UI.aiBusy = true; UI.aiError = ''; renderAll();
+    try {
+      const base = String(ai.baseURL || '').replace(/\/+$/, '');
+      const res = await fetch(base + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ai.key },
+        body: JSON.stringify({
+          model: ai.model, temperature: 0.4,
+          messages: [
+            { role: 'system', content: CONTENT.AI_SYSTEM },
+            { role: 'user', content: CONTENT.AI_USER(weekData()) }
+          ]
+        })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      const text = (((j.choices || [])[0] || {}).message || {}).content || '';
+      if (!text.trim()) throw new Error('返回内容为空');
+      const marks = ['一、工作台与利润', '二、经营', '三、数据目标', '四、亚马逊知识', '五、其他学习'];
+      const parts = text.split(/(?=[一二三四五]、)/).filter(function (p) { return /^[一二三四五]、/.test(p.trim()); });
+      let sections = parts.length === 5 ? parts.map(function (p) { return p.trim(); }) : null;
+      if (!sections) {
+        const idx = marks.map(function (m) { return text.indexOf(m); });
+        if (idx.every(function (x) { return x >= 0; }) && idx.every(function (x, i) { return i === 0 || x > idx[i - 1]; })) {
+          sections = idx.map(function (x, i) { return text.slice(x, i < 4 ? idx[i + 1] : text.length).trim(); });
+        } else {
+          const fallback = buildRuleReport();
+          sections = [text.trim()].concat(fallback.slice(1));
+        }
+      }
+      DB.reportCache = { week: weekKeys()[0], by: 'ai', sections: sections, generatedAt: Date.now() };
+      save(); toast('AI 周复盘已生成');
+    } catch (e) {
+      UI.aiError = '调用失败：' + e.message + '。常见原因是端点不允许浏览器直连（CORS）或 key 无效。已保留规则版周报。';
+    }
+    UI.aiBusy = false; renderAll();
+  }
+  function copyReport() {
+    const text = currentReport().join('\n\n');
+    const done = function () { toast('周报已复制，可以发给别人要一句反馈'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+    } else fallbackCopy(text, done);
+  }
+  function fallbackCopy(text, done) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'absolute'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败，请长按选中文本'); }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- 备份 ---------- */
+  function exportJSON() {
+    try {
+      const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = '回声-备份-' + today() + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      toast('备份已导出');
+    } catch (e) { toast('导出失败：' + e.message); }
+  }
+  function importJSON(file) {
+    if (!file) return;
+    const r = new FileReader();
     r.onload = function () {
       try {
-        pendingCostRows = window.ProfitEngine.parseXlsxRows(r.result);
-        toast("成本表已就绪，共 " + (pendingCostRows.length - 1) + " 行");
-      } catch (err) {
-        pendingCostRows = null;
-        toast("成本表解析失败：" + err.message);
-      }
+        const d = JSON.parse(r.result);
+        if (!d || typeof d !== 'object') throw new Error('格式不对');
+        ['ops', 'checkbacks', 'knowledge', 'otherStudy', 'bridge', 'sales'].forEach(function (k) {
+          if (!Array.isArray(d[k])) return;
+          const seen = {};
+          DB[k].forEach(function (x) { seen[x.id] = 1; });
+          d[k].forEach(function (x) { if (x && x.id && !seen[x.id]) DB[k].push(x); });
+        });
+        if (d.settings) {
+          DB.settings = Object.assign({}, DB.settings, d.settings);
+          DB.settings.ai = Object.assign({}, DB.settings.ai, d.settings.ai || {});
+        }
+        save(); renderAll(); toast('已按 id 去重合并');
+      } catch (e) { toast('导入失败：' + e.message); }
+    };
+    r.readAsText(file);
+  }
+  function clearAll() {
+    if (!window.confirm('确定清空本机所有记录吗？此操作不可撤销，建议先导出备份。')) return;
+    if (!window.confirm('再确认一次：所有经营、学习、回看记录都会被删除。')) return;
+    DB = blank(); save(); UI.settingsOpen = false; renderAll(); toast('已清空');
+  }
+
+  /* ---------- 片段 ---------- */
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  }
+  function metrics(items) {
+    return '<div class="metrics">' + items.map(function (i) {
+      return '<div class="metric"><div class="metric-label">' + esc(i.label) + '</div><div class="metric-value">' + esc(i.value) + (i.small ? '<small>' + esc(i.small) + '</small>' : '') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  function echoCard(unit, state, list, color, label, num, ratio) {
+    const text = pickPraise(list, state, unit);
+    return '<div class="echo ' + color + '">' +
+      '<div class="echo-label">' + esc(label) + '</div>' +
+      '<div class="echo-num">' + esc(num) + '</div>' +
+      '<div class="bar ' + color + '"><div class="bar-fill ' + color + '" style="width:' + Math.min(100, Math.round(ratio * 100)) + '%"></div></div>' +
+      '<div class="echo-text">' + esc(text) + '</div></div>';
+  }
+  function pillRow(items, current, attr, act, color) {
+    return items.map(function (i) {
+      const v = typeof i === 'string' ? i : i.v, l = typeof i === 'string' ? i : i.l;
+      return '<button class="pill' + (String(current) === String(v) ? ' active ' + (color || '') : '') + '" data-act="' + act + '" ' + attr + '="' + esc(v) + '">' + esc(l) + '</button>';
+    }).join('');
+  }
+  function weekBars(items, color) {
+    const keys = weekKeys(), counts = keys.map(function (k) {
+      return items.filter(function (x) { return dkey(x.createdAt) === k; }).length;
+    });
+    const max = Math.max.apply(null, counts.concat([1]));
+    const names = ['一', '二', '三', '四', '五', '六', '日'];
+    return '<div class="weekbars">' + counts.map(function (c, i) {
+      const h = Math.max(3, Math.round(c / max * 56));
+      return '<div class="weekbar ' + color + (keys[i] === today() ? ' today' : '') + '" style="height:' + h + 'px"></div>';
+    }).join('') + '</div><div class="weekdays">' + names.map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</div>';
+  }
+  function rows(items, color, opts) {
+    if (!items.length) return '<div class="empty">' + esc(opts.empty) + '</div>';
+    return '<div class="list">' + items.map(function (x) {
+      return '<div class="row"><span class="dot ' + color + '"></span>' +
+        '<span class="row-text" title="' + esc(x.text) + '">' + esc(x.text) + '</span>' +
+        '<span class="tag ' + color + '">' + esc(x.tag) + '</span>' +
+        '<span class="mins">' + (x.minutes ? x.minutes + ' 分' : esc(x.extra || '')) + '</span>' +
+        (x.action || '') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- 工作台：总览 / 模块 / 核算 ---------- */
+  function wbLoad() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CONTENT.WORKBENCH_KEY) || 'null');
+      return (d && d.source === 'imported') ? d : null;
+    } catch (e) { return null; }
+  }
+  function wbState() {
+    const d = wbLoad(), base = CONTENT.WB_DEMO;
+    const kpi = Object.assign({}, base.kpi);
+    if (d && d.kpi) Object.keys(d.kpi).forEach(function (k) { if (isFinite(Number(d.kpi[k]))) kpi[k] = Number(d.kpi[k]); });
+    const feeds = {};
+    CONTENT.WB_FEEDS.forEach(function (f) { feeds[f.key] = !!(d && d.feeds && d.feeds[f.key]); });
+    return { demo: !d, period: (d && d.period) || base.period, updatedAt: (d && d.updatedAt) || '', kpi: kpi, feeds: feeds };
+  }
+  function fmtMoney(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtPct(n) { return (Number(n || 0) * 100).toFixed(1) + '%'; }
+  function wbIcon(n) {
+    const p = {
+      home: 'M3 10.5 12 3l9 7.5M5.5 9.5V21h13V9.5',
+      target: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 3.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z',
+      image: 'M3 5h18v14H3zM8 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm-5 9 5-5 4 4 3-3 6 6',
+      ads: 'M3 17 9 11l4 4 8-8M16 7h5v5',
+      profit: 'M4 20v-9M10 20V5M16 20v-6M2 20h20',
+      db: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Zm0 0v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6'
+    };
+    return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (p[n] || '') + '"/></svg>';
+  }
+  function renderHome() {
+    const st = wbState(), k = st.kpi;
+    let h = '<div class="page-head"><h1>总览</h1><p>工作台数据底座 · 账期 ' + esc(st.period) + '</p></div>';
+    h += '<div class="card"><div class="card-title">数据状态</div>' +
+      '<div class="card-sub">' + (st.demo ? '演示数据 · 尚未导入本地计算结果' : ('更新于 ' + esc(st.updatedAt || '未知时间'))) + '</div>' +
+      '<div class="pill-row"><button class="btn btn-primary" data-act="wb-import">导入 result.json</button>' +
+      (st.demo ? '' : '<button class="btn" data-act="wb-clear">清除</button>') + '</div></div>';
+    h += metrics([
+      { label: '销售额 USD', value: fmtMoney(k.sales), small: k.asinCount + ' 个在售 ASIN' },
+      { label: '广告花费', value: fmtMoney(k.adSpend), small: 'ACOS ' + fmtPct(k.acos) },
+      { label: '净利润', value: fmtMoney(k.profit), small: '毛利率 ' + fmtPct(k.margin) },
+      { label: '退款率', value: fmtPct(k.refundRate), small: '结算口径 · 按 MSKU' }
+    ]);
+    h += '<div class="card"><div class="card-title">四个环节</div><div class="card-sub">点卡片进入模块</div><div class="modgrid">';
+    ['sourcing', 'listing', 'ads', 'data'].forEach(function (id) {
+      const m = CONTENT.WB_MODULES[id] || { name: '数据', icon: 'profit', summary: '利润核算与每日目标', badge: '已接入', badgeType: 'ready', phase: 'P0', engine: { name: '本地核算引擎', ready: true } };
+      h += '<button class="modcard" data-act="nav" data-tab="' + id + '">' +
+        '<span class="modico">' + wbIcon(m.icon) + '</span>' +
+        '<span class="modname">' + esc(m.name) + ' <span class="tag ' + (m.badgeType === 'ready' ? 'green' : 'gray') + '">' + esc(m.badge) + '</span></span>' +
+        '<span class="modsum">' + esc(m.summary) + '</span>' +
+        '<span class="modmeta">' + (m.engine && m.engine.ready ? '引擎就绪 · ' : '引擎待建 · ') + esc(m.engine ? m.engine.name : '') + '</span></button>';
+    });
+    h += '</div></div>';
+    h += '<div class="card"><div class="card-title">统一数据底座</div><div class="card-sub">ASIN / MSKU 主键</div>';
+    CONTENT.WB_FEEDS.forEach(function (f) {
+      const ok = !!st.feeds[f.key];
+      h += '<div class="row"><span class="dot ' + (ok ? 'green' : 'gray') + '"></span><span class="row-text">' + esc(f.name) +
+        '<br><span class="mins">' + esc(f.fmt) + '</span></span><span class="tag ' + (ok ? 'green' : 'gray') + '">' + (ok ? '已接入' : '待导入') + '</span></div>';
+    });
+    h += '<div class="hint">利润核算已在「数据」页内置，可直接选 CSV + 成本 XLSX 本地计算；其余模块走本地脚本产出 result.json 后导入。文件不上传。</div></div>';
+    h += '<div class="card"><div class="card-title">四条约定</div>';
+    CONTENT.WB_PRINCIPLES.forEach(function (p) { h += '<div class="row"><span class="row-text"><b>' + esc(p.t) + '</b> · ' + esc(p.d) + '</span></div>'; });
+    h += '</div>';
+    h += '<input type="file" id="wbImportFile" accept=".json,application/json" style="display:none">';
+    return h;
+  }
+  function renderWorkModule(id) {
+    const m = CONTENT.WB_MODULES[id];
+    if (!m) return renderHome();
+    let h = '<div class="page-head"><h1>' + esc(m.name) + '</h1><p>' + esc(m.summary) + '</p></div>';
+    h += '<div class="card"><div class="card-title">' + esc(m.name) + ' 阶段 · ' + esc(m.phase) + '</div>' +
+      '<div class="card-sub"><span class="tag ' + (m.badgeType === 'ready' ? 'green' : 'gray') + '">' + esc(m.badge) + '</span> ' + esc(m.summary) + '</div></div>';
+    h += '<div class="card"><div class="card-title">这一块会做什么</div>';
+    m.todos.forEach(function (t) { h += '<div class="row"><span class="dot blue"></span><span class="row-text">' + esc(t) + '</span></div>'; });
+    h += '</div>';
+    h += '<div class="card"><div class="card-title">需要的数据</div>';
+    m.inputs.forEach(function (i) {
+      h += '<div class="row"><span class="row-text">' + esc(i.name) + '<br><span class="mins">' + esc(i.fmt) + '</span></span><span class="tag gray">' + esc(i.state) + '</span></div>';
+    });
+    h += '</div>';
+    h += '<div class="card"><div class="card-title">分析引擎</div>' +
+      '<div class="card-sub"><span class="tag ' + (m.engine.ready ? 'green' : 'gray') + '">' + (m.engine.ready ? '已就绪' : '待建') + '</span> ' + esc(m.engine.name) + '</div>' +
+      '<div class="hint">' + esc(m.engineNote) + '</div></div>';
+    h += '<div class="funnel"><div class="card-title">' + esc(m.name) + ' 模块内容区</div>' +
+      '<div class="funnel-note">框架版先占位，实际图表与清单在 ' + esc(m.phase) + ' 阶段填充。</div></div>';
+    h += '<div class="hint">' + esc(m.note) + '</div>';
+    return h;
+  }
+  function profitLoad() {
+    try { const d = JSON.parse(localStorage.getItem(CONTENT.PROFIT_KEY) || 'null'); return (d && d.summary) ? d : null; }
+    catch (e) { return null; }
+  }
+  function profitSave(d) {
+    try { localStorage.setItem(CONTENT.PROFIT_KEY, JSON.stringify(d)); return true; }
+    catch (e) { toast('结果太大，本机存不下'); return false; }
+  }
+  function runCalc() {
+    if (!UI.calcRows || !UI.calcCsvName) { toast('先选结算 CSV 和成本 XLSX'); return; }
+    const fx = Number(UI.calcFx);
+    if (!fx || fx <= 0) { toast('汇率要填大于 0 的数字'); return; }
+    try {
+      const result = window.ProfitEngine.analyze(UI.calcCsvText, UI.calcRows, fx);
+      result.period = (result.daily.length ? result.daily[0].date.slice(0, 7) : '本次报表');
+      result.generatedAt = Date.now();
+      profitSave(result);
+      UI.calcOpen = false;
+      toast('核算完成：' + result.summary.orders + ' 单，订单利润 ¥' + Math.round(result.summary.orderProfitCny));
       renderAll();
-    };
-    r.onerror = function () { toast("XLSX 读取失败"); };
-    r.readAsArrayBuffer(f);
-    e.target.value = "";
-  });
+    } catch (e) { toast('核算失败：' + e.message); }
+  }
+  function sendProfitToDaily() {
+    const p = profitLoad();
+    if (!p || !p.daily || !p.daily.length) { toast('还没有核算结果'); return; }
+    let added = 0, updated = 0;
+    p.daily.forEach(function (d) {
+      if (!d.orders && !d.grossUsd) return;
+      const row = DB.sales.filter(function (s) { return s.date === d.date; })[0];
+      const payload = {
+        orders: d.orders, revenueUsd: d.grossUsd, profitCny: d.orderProfitCny,
+        adSpendUsd: (d.adUsd && d.adUsd < 0) ? Math.abs(d.adUsd) : (d.adUsd || ''), acos: ''
+      };
+      if (row) { Object.assign(row, payload); updated++; }
+      else { DB.sales.push(Object.assign({ id: uid(), date: d.date, createdAt: Date.now(), updatedAt: Date.now() }, payload)); added++; }
+    });
+    save(); renderAll();
+    toast('已送入数据页：新增 ' + added + ' 天、更新 ' + updated + ' 天');
+  }
+  function renderCalcPanel() {
+    const p = profitLoad();
+    let h = '<div class="card"><div class="card-title">报表核算引擎 <span class="tag green">本地解析</span></div>' +
+      '<div class="card-sub">选结算 CSV + 成本 XLSX，浏览器本地算按天/按 MSKU 真实利润。文件不上传。算完可一键送入下方每日记录。</div>' +
+      '<div class="form-grid" style="margin-top:10px">' +
+      '<div class="field"><label>结算报表 CSV</label><button class="btn" data-act="calc-pick-csv">' + esc(UI.calcCsvName || '选择文件') + '</button></div>' +
+      '<div class="field"><label>成本表 XLSX</label><button class="btn" data-act="calc-pick-cost">' + esc(UI.calcCostName || '选择文件') + '</button></div>' +
+      '<div class="field"><label>汇率 USD→CNY</label><input type="number" step="0.0001" min="0" data-calc="fx" value="' + esc(UI.calcFx) + '"></div>' +
+      '</div><div class="pill-row"><button class="btn btn-primary" data-act="calc-run">开始核算</button>' +
+      (p ? '<button class="btn" data-act="calc-send">送入每日记录</button><button class="btn" data-act="calc-clear">清除结果</button>' : '') +
+      '</div><input type="file" id="calcCsvFile" accept=".csv,text/csv" style="display:none">' +
+      '<input type="file" id="calcCostFile" accept=".xlsx" style="display:none">';
+    if (p) {
+      const s = p.summary;
+      h += '<div class="divider"></div><div class="card-sub">最近核算 · ' + esc(p.period || '') + ' · ' + s.orders + ' 单 · 汇率 ' + s.fx + '</div>' +
+        metrics([
+          { label: '成交额', value: fmtMoney(s.grossUsd) },
+          { label: '订单利润', value: '¥' + Math.round(s.orderProfitCny).toLocaleString('zh-CN') },
+          { label: '非订单费', value: fmtMoney(s.otherUsd) },
+          { label: '全口径到手', value: '¥' + Math.round(s.profitCny).toLocaleString('zh-CN') }
+        ]);
+    }
+    h += '</div>';
+    return h;
+  }
 
-  $("#fileInput").addEventListener("change", function (e) {
-    var f = e.target.files && e.target.files[0];
-    if (!f) return;
-    var r = new FileReader();
-    r.onload = function () {
-      try {
-        var d = JSON.parse(r.result);
-        if (!d || typeof d !== "object" || Array.isArray(d)) throw new Error("bad shape");
-        d.source = "imported";
-        if (!d.updatedAt) d.updatedAt = new Date().toLocaleString("zh-CN", { hour12: false });
-        if (save(d)) { toast("已载入 result.json · 框架版仅展示汇总 KPI"); renderAll(); }
-      } catch (err) {
-        toast("解析失败：请选择本地脚本产出的 JSON 文件");
+  /* ---------- 页面：经营 ---------- */
+  function renderOps() {
+    const s = opsState(), v = UI.opsView, f = UI.form;
+    const types = CONTENT.OPS_TYPES[v];
+    if (types.indexOf(f.opsType[v]) < 0) f.opsType[v] = types[0];
+    const pending = DB.checkbacks.filter(function (c) { return c.status === 'pending' && c.dueAt <= Date.now(); });
+    const doneList = DB.checkbacks.filter(function (c) { return c.status === 'done'; }).slice(-3).reverse();
+    const td = DB.ops.filter(function (o) { return dkey(o.createdAt) === today(); }).slice().reverse();
+
+    let html = '<div class="page-head"><h1>经营</h1><p>反馈锚点：可控动作 · 不看日销量与 BSR</p></div>';
+    html += '<div class="pill-row" style="margin:0 0 14px">' +
+      pillRow(CONTENT.OPS_VIEWS.map(function (x) { return { v: x.k, l: x.label }; }), v, 'data-view', 'ops-view', '') +
+      '<span class="spacer"></span><span style="font-size:11px;color:var(--text-3)">' +
+      esc(CONTENT.OPS_VIEWS.filter(function (x) { return x.k === v; })[0].hint) + '</span></div>';
+    html += metrics([
+      { label: '今日经营动作', value: s.todayCount + ' 条', small: s.todayMinutes + ' 分' },
+      { label: '待回填信号', value: pending.length + ' 项' },
+      { label: '本周否决品', value: s.weekRejected + ' 个' }
+    ]);
+
+    html += '<div class="cols"><div class="col">';
+    /* 快速记录 */
+    html += '<div class="card"><div class="card-title">刚做完什么</div>' +
+      '<div class="card-sub">只填一句 + 选类型，3 秒结束。勾「要回看」会排进第 3 / 7 天。</div>' +
+      '<input class="input" data-model="opsText" placeholder="例：把 A 词竞价从 0.85 降到 0.70" value="' + esc(f.opsText) + '">' +
+      '<div class="pill-row">' + pillRow(types, f.opsType[v], 'data-type', 'ops-type', '') + '</div>' +
+      '<div class="pill-row">' +
+      pillRow([{ v: '15', l: '15 分' }, { v: '25', l: '25 分' }, { v: '45', l: '45 分' }, { v: '60', l: '60 分' }], f.opsMinutes, 'data-mins', 'ops-mins', '') +
+      '<label class="checkbox"><input type="checkbox" data-check="opsWatch"' + (f.opsWatch ? ' checked' : '') + '> 要回看</label>' +
+      '<span class="spacer"></span><button class="btn btn-primary" data-act="add-ops">记一条</button></div></div>';
+    /* 今日清单 */
+    html += '<div class="card"><div class="card-title">今天的动作</div><div class="card-sub">共 ' + td.length + ' 条 · ' + minutesOf(td) + ' 分钟</div>' +
+      rows(td.map(function (o) { return { text: o.text, tag: o.type, minutes: o.minutes, extra: o.watch ? '回看中' : '' }; }), 'blue', { empty: CONTENT.EMPTY.ops }) + '</div>';
+    html += '</div><div class="col">';
+    /* 即时回音 */
+    html += echoCard('ops', s, CONTENT.PRAISE_OPS, 'blue', '即时回音',
+      s.todayCount + ' 条 · ' + s.todayMinutes + ' 分', s.todayCount / Math.max(1, DB.settings.goalOps));
+    /* 回看队列 */
+    html += '<div class="card"><div class="card-title">该回填数据了</div>' +
+      '<div class="card-sub">只陈述前后变化，不替你判断因果。数字手工填，不接任何付费数据源。</div>';
+    if (!pending.length && !doneList.length) html += '<div class="empty">还没有到期的回看。记动作时勾「要回看」就会在这里出现。</div>';
+    pending.slice(0, 6).forEach(function (c) {
+      const a = DB.ops.filter(function (o) { return o.id === c.actionId; })[0];
+      html += '<div class="queue-item"><div class="queue-top"><span style="flex:1">' +
+        esc(a ? a.text : '某次调整') + '</span><span class="tag blue">第 ' + c.day + ' 天</span>' +
+        '<button class="btn btn-sm" data-act="fill-open" data-id="' + c.id + '">' + (UI.fillOpen === c.id ? '收起' : '回填') + '</button></div>' +
+        '<div class="queue-note">到期 ' + fmtDate(c.dueAt) + ' · 待填 CTR / CVR / ACOS / BSR 中任意几项</div>';
+      if (UI.fillOpen === c.id) {
+        html += '<div class="fill-form"><div class="mini-label">填调整前 / 现在的数字，留空的指标会自动跳过</div>';
+        CONTENT.METRICS.forEach(function (m) {
+          html += '<div class="fill-row"><div class="field"><label>' + m.label + '</label></div>' +
+            '<div class="field"><label>调整前</label><input type="number" step="any" data-fill-b="' + m.k + '" placeholder="0"></div>' +
+            '<div class="field"><label>现在</label><input type="number" step="any" data-fill-a="' + m.k + '" placeholder="0"></div></div>';
+        });
+        html += '<button class="btn btn-primary btn-sm" data-act="fill-save" data-id="' + c.id + '">保存回填</button></div>';
       }
+      html += '</div>';
+    });
+    doneList.forEach(function (c) {
+      const a = DB.ops.filter(function (o) { return o.id === c.actionId; })[0];
+      html += '<div class="queue-item"><div class="queue-top"><span style="flex:1">' + esc(a ? a.text : '某次调整') +
+        '</span><span class="tag gray">第 ' + c.day + ' 天 · 已回填</span></div>' +
+        '<div class="queue-note done">' + esc(c.note).replace(/\n/g, '<br>') + '</div></div>';
+    });
+    html += '</div>';
+    /* 选品漏斗 */
+    const funnel = {}; CONTENT.FUNNEL_LABELS.forEach(function (x) { funnel[x.k] = 0; });
+    DB.ops.filter(function (o) { return o.view === 'src' && inWeek(o.createdAt); }).forEach(function (o) {
+      const k = CONTENT.FUNNEL_MAP[o.type]; if (k) funnel[k] += 1;
+    });
+    html += '<div class="funnel"><div class="card-title">本周选品漏斗</div>' +
+      '<div class="funnel-line">' + CONTENT.FUNNEL_LABELS.map(function (x) { return x.label + ' ' + funnel[x.k]; }).join(' → ') + '</div>' +
+      '<div class="funnel-note">' + (funnel.rejected ? '本周 ' + funnel.rejected + ' 个否决帮你避开了坑，算推进。只看上架数的话，这周会显得白干。' : '在「选品开发」视图里记动作，漏斗会自动累加；否决同样计入推进。') + '</div></div>';
+    /* 本周节奏 */
+    html += '<div class="card"><div class="card-title">本周经营节奏</div><div class="card-sub">只数可控动作，不数单量</div>' +
+      weekBars(DB.ops, 'blue') + '</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ---------- 页面：学习 ---------- */
+  function renderLearnKnow() {
+    const s = knowState(), f = UI.form;
+    const recent = DB.knowledge.filter(function (k) { return !k.isReview; }).slice().reverse().slice(0, 6);
+    const bridgedIds = {}; DB.bridge.forEach(function (b) { bridgedIds[b.kid] = b; });
+    const rules = DB.knowledge.filter(function (k) { return k.isRule && !k.reviewedAt; })
+      .sort(function (a, b) { return a.reviewAt - b.reviewAt; }).slice(0, 5);
+    let html = metrics([
+      { label: '本周本区', value: s.weekCount + ' 条', small: s.weekMinutes + ' 分' },
+      { label: '已送去验证', value: s.bridged + ' 条' },
+      { label: '待复核规则', value: s.dueReviews + ' 条' }
+    ]);
+    html += '<div class="cols"><div class="col">';
+    html += '<div class="card"><div class="card-title">刚学了什么</div>' +
+      '<div class="card-sub">默认只填内容 + 分类 + 时长。自测、出处、生效日都收在「展开更多」里，不强制。</div>' +
+      '<input class="input" data-model="knowText" placeholder="例：广告位竞价只调搜索结果顶部以外的位置" value="' + esc(f.knowText) + '">' +
+      '<div class="pill-row">' + pillRow(CONTENT.KNOW_CATS, f.knowCat, 'data-cat', 'know-cat', 'green') + '</div>' +
+      '<div class="pill-row">' +
+      pillRow([{ v: '15', l: '15 分' }, { v: '25', l: '25 分' }, { v: '45', l: '45 分' }, { v: '60', l: '60 分' }], f.knowMinutes, 'data-mins', 'know-mins', 'green') +
+      '<span class="spacer"></span><button class="btn btn-primary green" data-act="add-know">记一条</button></div>' +
+      '<label class="checkbox"><input type="checkbox" data-check="knowRule"' + (f.knowRule ? ' checked' : '') + '> 规则 / 政策类，会过期（排进 30 天复核队列）</label>';
+    html += '<div class="more"><button class="more-head" data-act="toggle-more">' + (UI.moreOpen ? '▾ 收起更多（可选）' : '▸ 展开更多（可选）') + '</button>';
+    if (UI.moreOpen) {
+      html += '<div class="more-body">' +
+        '<div class="field"><label>我自己的理解（选填）</label><input data-model="knowNote" value="' + esc(f.knowNote) + '" placeholder="用自己的话说一遍"></div>' +
+        '<div class="form-grid">' +
+        '<div class="field"><label>出处链接（选填）</label><input data-model="knowUrl" value="' + esc(f.knowUrl) + '" placeholder="https://"></div>' +
+        '<div class="field"><label>生效日期（选填）</label><input type="date" data-model="knowEffective" value="' + esc(f.knowEffective) + '"></div>' +
+        '</div></div>';
+    }
+    html += '</div></div>';
+    html += '<div class="card"><div class="card-title">最近记的</div>' +
+      '<div class="card-sub">分类与经营页动作类型对齐，周报里会做学用对照。</div>' +
+      rows(recent.map(function (k) {
+        return { text: k.text, tag: k.cat, minutes: k.minutes, extra: k.isRule ? '规则类' : '' };
+      }), 'green', { empty: CONTENT.EMPTY.know }) + '</div>';
+    html += '</div><div class="col">';
+    html += echoCard('know', s, CONTENT.PRAISE_KNOW, 'green', '即时回音',
+      s.todayCount + ' 条 · ' + s.todayMinutes + ' 分', s.todayCount / Math.max(1, DB.settings.goalKnow));
+    /* 桥 */
+    html += '<div class="card"><div class="card-title">送去经营页验证</div>' +
+      '<div class="card-sub">只有本区的结论会生成经营页待验证动作，同样进第 3 / 7 天回看。</div>';
+    if (!recent.length) html += '<div class="empty">还没有知识记录。</div>';
+    recent.slice(0, 5).forEach(function (k) {
+      const b = bridgedIds[k.id];
+      let status = '<button class="btn btn-sm" data-act="bridge-send" data-kid="' + k.id + '">送过去</button>';
+      if (b) {
+        const done = DB.checkbacks.some(function (c) { return c.actionId === b.actionId && c.status === 'done'; });
+        status = '<span class="tag ' + (done ? 'blue' : 'gray') + '">' + (done ? '已回填' : '第 3 天回看中') + '</span>';
+      }
+      html += '<div class="review-item"><span class="row-text" title="' + esc(k.text) + '">' + esc(k.text) + '</span>' + status + '</div>';
+    });
+    html += '</div>';
+    /* 复核队列 */
+    html += '<div class="card"><div class="card-title">规则复核队列</div>' +
+      '<div class="card-sub">平台规则会变。到期回来记一句「仍有效 / 已改」，算一条有效记录。</div>';
+    if (!rules.length) html += '<div class="empty">队列里没有规则类知识。记录时勾「会过期」即可加入。</div>';
+    rules.forEach(function (k) {
+      const due = k.reviewAt <= Date.now();
+      html += '<div class="review-item"><span class="row-text" title="' + esc(k.text) + '">' + esc(k.text) + '</span>' +
+        '<span class="tag ' + (due ? 'green' : 'gray') + '">' + (due ? '待复核' : fmtDate(k.reviewAt)) + '</span>' +
+        '<button class="btn btn-sm" data-act="review-ok" data-id="' + k.id + '">仍有效</button>' +
+        '<button class="btn btn-sm" data-act="review-changed" data-id="' + k.id + '">已改</button></div>';
+    });
+    html += '</div>';
+    html += '<div class="card"><div class="card-title">本周本区节奏</div>' + weekBars(DB.knowledge, 'green') + '</div>';
+    html += '</div></div>';
+    return html;
+  }
+  function renderLearnOther() {
+    const s = otherState(), f = UI.form;
+    const recent = DB.otherStudy.slice().reverse().slice(0, 8);
+    let html = metrics([
+      { label: '本周本区', value: s.weekCount + ' 条', small: s.weekMinutes + ' 分' },
+      { label: '近 30 天有记录', value: s.streak + ' 天' },
+      { label: '写了自己的理解', value: s.noteCount + ' 条' }
+    ]);
+    html += '<div class="cols"><div class="col">';
+    html += '<div class="card"><div class="card-title">刚学了什么</div>' +
+      '<div class="card-sub">这一区不分类、不对照业务，也不产出经营动作。</div>' +
+      '<input class="input" data-model="otherText" placeholder="例：读完某本书第 3 章" value="' + esc(f.otherText) + '">' +
+      '<div class="pill-row">' +
+      pillRow([{ v: '15', l: '15 分' }, { v: '25', l: '25 分' }, { v: '45', l: '45 分' }, { v: '60', l: '60 分' }], f.otherMinutes, 'data-mins', 'other-mins', 'green') +
+      '<span class="spacer"></span><button class="btn btn-primary green" data-act="add-other">记一条</button></div>' +
+      '<div class="more-body" style="margin-top:10px"><div class="field"><label>我自己的理解（选填）</label>' +
+      '<input data-model="otherNote" value="' + esc(f.otherNote) + '" placeholder="用自己的话说一遍"></div></div></div>';
+    html += '<div class="card"><div class="card-title">最近记的</div>' +
+      rows(recent.map(function (o) { return { text: o.text, tag: '学习', minutes: o.minutes }; }), 'green', { empty: CONTENT.EMPTY.other }) + '</div>';
+    html += '</div><div class="col">';
+    html += echoCard('other', s, CONTENT.PRAISE_OTHER, 'green', '即时回音',
+      s.todayCount + ' 条 · ' + s.todayMinutes + ' 分', s.todayCount / Math.max(1, DB.settings.goalOther));
+    html += '<div class="card"><div class="card-title">本周本区节奏</div>' + weekBars(DB.otherStudy, 'green') +
+      '<div class="hint">这一区只有时长、自测和复习，不出现任何业务对照，也不制造「学这个没用」的感觉。</div></div>';
+    html += '<div class="funnel"><div class="card-title">关于分区</div>' +
+      '<div class="funnel-note">亚马逊知识和其他学习各自独立统计、独立连续天数、独立评语。两边都不显示对方的数字，互不稀释。</div></div>';
+    html += '</div></div>';
+    return html;
+  }
+  function renderLearn() {
+    const know = UI.learnSub === 'know';
+    let html = '<div class="page-head"><h1>学习</h1><p>反馈锚点：掌握度 · 两个子区各自独立</p></div>';
+    html += '<div class="subtabs">' +
+      '<button class="subtab' + (know ? ' active' : '') + '" data-act="learn-sub" data-sub="know">亚马逊知识</button>' +
+      '<button class="subtab' + (!know ? ' active' : '') + '" data-act="learn-sub" data-sub="other">其他学习</button>' +
+      '<span class="subtab-note">本区独立统计 · 近 30 天 ' + activeDays(know ? DB.knowledge : DB.otherStudy) + ' 天有记录</span></div>';
+    html += know ? renderLearnKnow() : renderLearnOther();
+    return html;
+  }
+
+  /* ---------- 页面：周报 ---------- */
+  function renderReport() {
+    const secs = currentReport();
+    const aiOn = DB.reportCache && DB.reportCache.week === weekKeys()[0] && DB.reportCache.by === 'ai';
+    let html = '<div class="page-head"><h1>周报</h1><p>' + weekKeys()[0] + ' ~ ' + weekKeys()[6] + ' · 五段汇总工作台与反馈，不互相比较</p></div>';
+    html += '<div class="report-actions" style="margin-bottom:14px">' +
+      '<button class="btn btn-primary" data-act="ai-run"' + (UI.aiBusy ? ' disabled' : '') + '>' + (UI.aiBusy ? '生成中…' : '生成 AI 周复盘') + '</button>' +
+      '<button class="btn" data-act="report-copy">复制周报文本</button>' +
+      '<span class="spacer"></span><span style="font-size:11px;color:var(--text-3);align-self:center">' +
+      (aiOn ? '当前：AI 复盘 · ' + fmtDate(DB.reportCache.generatedAt) : '当前：规则版周报（无需 key）') + '</span></div>';
+    if (UI.aiError) html += '<div class="card" style="margin-bottom:14px;border-color:var(--line-2)"><div class="hint" style="color:var(--text)">' + esc(UI.aiError) + '</div></div>';
+    const titles = ['一、工作台与利润', '二、经营', '三、数据目标', '四、亚马逊知识', '五、其他学习'];
+    secs.forEach(function (t, i) {
+      const m = t.match(/^[一二三四五]、[^\n]*\n/);
+      const body = m ? t.slice(m[0].length) : t;
+      html += '<div class="report-section"><h3>' + titles[i] + '</h3><pre class="report-pre">' + esc(body) + '</pre></div>';
+    });
+    html += '<div class="hint">复制出去发给同事或学伴，就能收到一句真人反馈。结果只存本机，不上传。</div>';
+    /* 设置 */
+    html += '<div class="collapse"><button class="collapse-head" data-act="toggle-settings">' +
+      (UI.settingsOpen ? '▾ 收起设置' : '▸ 展开设置：目标 / AI / 备份') + '</button>';
+    if (UI.settingsOpen) {
+      const st = DB.settings;
+      html += '<div class="collapse-body"><div class="card">' +
+        '<div class="card-title">每日目标（只影响进度条，不产生惩罚）</div>' +
+        '<div class="form-grid" style="margin-top:10px">' +
+        '<div class="field"><label>经营 / 条</label><input type="number" min="1" data-set="goalOps" value="' + esc(st.goalOps) + '"></div>' +
+        '<div class="field"><label>亚马逊知识 / 条</label><input type="number" min="1" data-set="goalKnow" value="' + esc(st.goalKnow) + '"></div>' +
+        '<div class="field"><label>其他学习 / 条</label><input type="number" min="1" data-set="goalOther" value="' + esc(st.goalOther) + '"></div>' +
+        '</div></div>';
+      html += '<div class="card" style="margin-top:12px"><div class="card-title">AI 周复盘（可选）</div>' +
+        '<div class="card-sub">兼容 OpenAI 格式的端点，浏览器直连。key 只存本机，别在公用电脑填写。没填就自动用规则版。</div>' +
+        '<div class="form-grid">' +
+        '<div class="field"><label>Base URL</label><input data-set="ai.baseURL" value="' + esc(st.ai.baseURL) + '" placeholder="https://api.openai.com/v1"></div>' +
+        '<div class="field"><label>模型</label><input data-set="ai.model" value="' + esc(st.ai.model) + '" placeholder="gpt-4o-mini"></div>' +
+        '</div><div class="field" style="margin-top:8px"><label>API Key</label><input type="password" data-set="ai.key" value="' + esc(st.ai.key) + '" placeholder="留空则只用规则版"></div>' +
+        '<div class="hint">若端点不允许浏览器跨域直连（CORS），生成会失败并保留规则版周报，不影响其他功能。</div></div>';
+      html += '<div class="card" style="margin-top:12px"><div class="card-title">数据</div>' +
+        '<div class="card-sub">所有记录只存在当前浏览器。换设备用导出 / 导入，导入按 id 去重合并。</div>' +
+        '<div class="report-actions">' +
+        '<button class="btn" data-act="save-settings">保存设置</button>' +
+        '<button class="btn" data-act="export">导出 JSON 备份</button>' +
+        '<button class="btn" data-act="import">导入 JSON</button>' +
+        '<button class="btn" data-act="clear">清空全部数据</button>' +
+        '<input type="file" id="importFile" accept="application/json,.json" style="display:none">' +
+        '</div><div class="hint">' + (storageOK ? '存储状态：正常，记录会保存在本机。' : '存储状态：异常，记录不会保存。') + '</div></div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  /* ---------- 页面：数据与目标 ---------- */
+  function renderData() {
+    const s = salesState(), f = UI.form, st = DB.settings;
+    let html = '<div class="page-head"><h1>数据</h1><p>看板，不是打卡 · 每天填真实利润，目标按剩余天数动态补齐</p></div>';
+
+    /* 进度总览：月目标可点改 */
+    html += '<div class="card" style="margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">' +
+      '<div class="card-title" style="margin:0">' + (new Date().getMonth() + 1) + ' 月真实到手进度' +
+      ' <button class="btn-link green" data-act="goal-quick" style="margin-left:8px">改目标</button></div>' +
+      '<span style="font-size:11px;color:var(--text-3)">本月剩 ' + s.daysLeft + ' 天</span></div>';
+    if (UI.goalQuick) {
+      html += '<div class="form-grid" style="margin:10px 0">' +
+        '<div class="field"><label>月到手目标 ¥</label><input type="number" min="1" data-goal="monthlyProfitGoal" value="' + esc(st.monthlyProfitGoal) + '"></div>' +
+        '<div class="field"><label>月固定成本 ¥</label><input type="number" min="0" data-goal="monthlyFixedCost" value="' + esc(st.monthlyFixedCost) + '"></div>' +
+        '</div><div class="pill-row" style="margin-top:0"><span class="spacer"></span><button class="btn btn-primary green btn-sm" data-act="save-goals">保存</button>' +
+        '<button class="btn btn-sm" data-act="goal-quick-cancel">取消</button></div>';
+    }
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;margin:10px 0 8px">' +
+      '<span>真实到手 <b style="font-weight:500">¥' + s.realProfit + '</b> / ¥' + s.goal + '</span>' +
+      '<span style="color:var(--text-3)">' + s.pct + '%</span></div>' +
+      '<div class="bar green"><div class="bar-fill green" style="width:' + s.pct + '%"></div></div>' +
+      '<div class="hint">订单利润 ¥' + s.monthProfit + ' − 月固定成本 ¥' + s.fixed + ' = 真实到手 ¥' + s.realProfit +
+      '。固定成本含 Vine / 仓储 / 订阅等（本月核算约 ¥1420）。</div></div>';
+
+    /* 今日目标英雄卡 */
+    html += '<div class="echo green" style="padding:18px;margin-bottom:12px">' +
+      '<div class="echo-label">今天的目标 · ' + fmtDate(Date.now()) + '</div>';
+    if (s.needReached) {
+      html += '<div class="echo-num">本月已达标</div>' +
+        '<div style="font-size:12px;line-height:1.7">扣完固定成本后仍到手 ¥' + s.realProfit + ' / ¥' + s.goal + '。剩下的是余量。</div>';
+    } else {
+      html += '<div class="echo-num">¥' + s.needToday + '</div>' +
+        '<div class="goal-split"><div><span class="goal-k">今天需赚（到手口径）</span><b>¥' + s.needToday + '</b></div>' +
+        '<div><span class="goal-k">约需出</span><b>' + (s.canEstimate && s.needOrders ? s.needOrders + ' 单' : '待估') + '</b></div></div>' +
+        '<div class="echo-text">' + (s.canEstimate
+          ? '按近 14 天真实单均利润 ¥' + s.profitPerOrder + ' 估算 · 已扣月固定成本，按剩余 ' + s.daysLeft + ' 天摊平'
+          : '还没有足够的真实利润数据，记满几天后「约需几单」就会显示数字。') + '</div>';
+    }
+    html += '</div>';
+
+    html += metrics([
+      { label: '今日订单利润', value: '¥' + s.todayProfit, small: s.hasToday ? s.todayOrders + ' 单' : '未记' },
+      { label: '本月订单利润', value: '¥' + s.monthProfit, small: s.monthOrders + ' 单' },
+      { label: '本月已记', value: s.logDays + ' 天', small: '真实利润口径' }
+    ]);
+
+    html += '<div class="cols"><div class="col">';
+    /* 录入 */
+    html += '<div class="card"><div class="card-title">今天记一笔</div>' +
+      '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
+      '<div class="sale-grid">' +
+      '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
+      '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
+      '<div class="field"><label>订单利润 ¥</label><input type="number" step="any" data-model="saleProfit" placeholder="真实值" value="' + esc(f.saleProfit) + '"></div>' +
+      '</div>' +
+      '<div class="sale-grid" style="margin-top:8px">' +
+      '<div class="field"><label>广告花费 $（选填）</label><input type="number" min="0" step="any" data-model="saleAd" placeholder="0" value="' + esc(f.saleAd) + '"></div>' +
+      '<div class="field"><label>ACOS %（选填）</label><input type="number" min="0" step="any" data-model="saleAcos" placeholder="留空" value="' + esc(f.saleAcos) + '"></div>' +
+      '<div></div></div>' +
+      '<div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="sale-save">' + (s.hasToday ? '更新今天' : '记下今天') + '</button></div></div>';
+
+    /* 广告预算建议（稳健型） */
+    html += '<div class="card"><div class="card-title">今日广告建议 · 稳健型</div>';
+    if (s.ad3Count >= 3) {
+      const up = s.adAction === 'up';
+      html += '<div class="advice-hero ' + (up ? 'up' : 'down') + '">' +
+        '<div><span class="advice-k">今天预算</span><b>$' + s.adBudget + '</b></div>' +
+        '<div><span class="advice-k">ACOS 要求</span><b>≤' + s.acosTarget + '%</b></div></div>' +
+        '<div class="hint" style="color:var(--text-2)">前 3 天日均 $' + s.ad3Avg +
+        '、ACOS ' + (s.ad3Acos === null ? '—' : s.ad3Acos + '%') +
+        '。' + (up ? '优于目标线，预算 +10%。' : '高于目标线，预算 -20%，先把 ACOS 压回 ' + s.acosTarget + '% 以内。') +
+        ' 这是基于你填的广告花费算的，不是拍脑袋。</div>';
+    } else {
+      const note = s.ad3Count > 0
+        ? CONTENT.ADVICE_NOTE.partial.replace('{n}', 3 - s.ad3Count)
+        : CONTENT.ADVICE_NOTE.none;
+      html += '<div class="empty">' + esc(note) + '</div>' +
+        (s.ad3Count > 0 ? '<div class="hint">当前参考：前 ' + s.ad3Count + ' 天日均 $' + s.ad3Avg + '（满 3 天后启用 +10% / -20% 规则）。</div>' : '');
+    }
+    html += '</div>';
+
+    /* 本月明细 */
+    html += '<div class="card"><div class="card-title">本月每日数据</div>' +
+      '<div class="card-sub">利润为报表核算的真实订单利润，不含月固定费。</div>';
+    if (!s.monthRows.length) html += '<div class="empty">' + esc(CONTENT.EMPTY.data) + '</div>';
+    else {
+      const rowsDesc = s.monthRows.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+      html += '<div class="list">';
+      rowsDesc.forEach(function (r) {
+        const pf = r.profitCny;
+        const hasP = pf !== null && pf !== undefined && pf !== '';
+        const pText = hasP ? '¥' + round2(Number(pf)) : '利润未填';
+        const ac = r.acos !== '' && r.acos != null ? ' · AC' + r.acos + '%' : '';
+        const ad = r.adSpendUsd !== '' && r.adSpendUsd != null ? ' · 广$' + r.adSpendUsd : '';
+        html += '<div class="row"><span class="row-text">' + esc(r.date.slice(5)) + '</span>' +
+          '<span class="tag green">' + (Number(r.orders) || 0) + ' 单</span>' +
+          '<span class="mins">$' + round2(Number(r.revenueUsd) || 0) + ' · ' + pText + ac + ad + '</span>' +
+          '<button class="btn btn-sm" data-act="sale-del" data-date="' + esc(r.date) + '">删</button></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '</div><div class="col">';
+
+    /* 即时回音 */
+    html += echoCard('data', s, CONTENT.PRAISE_DATA, 'green', '数据回音',
+      s.hasToday ? '¥' + s.todayProfit + ' · ' + s.todayOrders + ' 单' : '今日未记', s.pct / 100);
+
+    /* 参考数字 */
+    html += '<div class="card"><div class="card-title">参考数字</div>' +
+      '<div class="ref-grid">' +
+      '<div><span>近 14 天客单价</span><b>$' + s.aov + '</b></div>' +
+      '<div><span>真实单均利润</span><b>¥' + s.profitPerOrder + '</b></div>' +
+      '<div><span>汇率 USD→CNY</span><b>' + s.fx + '</b></div>' +
+      '<div><span>今日 ACOS</span><b' + (s.acos !== null && s.acos > s.warn ? ' style="color:#A32D2D"' : '') + '>' + (s.acos === null ? '—' : s.acos + '%') + '</b></div>' +
+      '</div><div class="hint">单均利润按你填的真实利润算（不是按利润率估）。汇率可在下方设置里改。</div></div>';
+
+    /* 本月销售额柱状 */
+    html += '<div class="card"><div class="card-title">本月每日销售额 $</div>' +
+      dataBars(s.monthRows) + '</div>';
+
+    /* 目标设置 */
+    html += '<div class="collapse"><button class="collapse-head" data-act="toggle-goals">' +
+      (UI.goalsOpen ? '▾ 收起设置' : '▸ 展开设置：月固定成本 / ACOS 线 / 汇率') + '</button>';
+    if (UI.goalsOpen) {
+      html += '<div class="collapse-body"><div class="form-grid">' +
+        '<div class="field"><label>月到手目标 ¥</label><input type="number" min="1" data-goal="monthlyProfitGoal" value="' + esc(st.monthlyProfitGoal) + '"></div>' +
+        '<div class="field"><label>月固定成本 ¥</label><input type="number" min="0" data-goal="monthlyFixedCost" value="' + esc(st.monthlyFixedCost) + '"></div>' +
+        '<div class="field"><label>ACOS 警戒线 %</label><input type="number" min="1" data-goal="acosWarn" value="' + esc(st.acosWarn) + '"></div>' +
+        '<div class="field"><label>汇率 USD→CNY</label><input type="number" min="0" step="0.0001" data-goal="fx" value="' + esc(st.fx) + '"></div>' +
+        '</div><div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="save-goals">保存设置</button></div>' +
+        '<div class="hint">月固定成本来自报表核算（Vine / 仓储 / 订阅 / 入库配置等）。改了会重算真实到手与目标缺口。</div></div>';
+    }
+    html += '</div>';
+    html += '</div></div>';
+    return html;
+  }
+  function dataBars(monthRows) {
+    const n = daysInMonth(), todayDate = new Date().getDate();
+    const byDay = {};
+    monthRows.forEach(function (r) { const dd = Number(r.date.slice(8, 10)); byDay[dd] = (byDay[dd] || 0) + (Number(r.revenueUsd) || 0); });
+    const vals = []; for (let i = 1; i <= n; i++) vals.push(byDay[i] || 0);
+    const max = Math.max.apply(null, vals.concat([1]));
+    const step = n > 20 ? 2 : 1;
+    let bars = '<div class="databars">';
+    vals.forEach(function (v, i) {
+      const h = Math.max(2, Math.round(v / max * 56));
+      bars += '<div class="databar' + (i + 1 === todayDate ? ' today' : '') + '" style="height:' + h + 'px"' +
+        (v ? ' title="' + (i + 1) + ' 日 ¥' + round2(v) + '"' : '') + '></div>';
+    });
+    bars += '</div><div class="dataaxis"><span>1 日</span><span>' + Math.round(n / 2) + ' 日</span><span>' + n + ' 日</span></div>';
+    return bars;
+  }
+
+  /* ---------- 渲染 ---------- */
+  function renderFeedback() {
+    const isOps = UI.fbSub === 'ops';
+    let h = '<div class="page-head"><h1>反馈</h1><p>' + (isOps ? '反馈锚点：可控动作 · 不看日销量与 BSR' : '反馈锚点：掌握度 · 两个子区各自独立') + '</p></div>';
+    h += '<div class="subtabs">' +
+      '<button class="subtab' + (isOps ? ' active' : '') + '" data-act="fb-sub" data-sub="ops">经营</button>' +
+      '<button class="subtab' + (!isOps ? ' active' : '') + '" data-act="fb-sub" data-sub="learn">学习</button>' +
+      '<span class="subtab-note">' + (isOps
+        ? '近 30 天 ' + activeDays(DB.ops) + ' 天有经营记录'
+        : '近 30 天 ' + activeDays(UI.learnSub === 'know' ? DB.knowledge : DB.otherStudy) + ' 天有记录') + '</span></div>';
+    if (isOps) h += renderOps();
+    else h += renderLearn();
+    return h;
+  }
+  function renderAll() {
+    document.getElementById('tabs').innerHTML = TABS.map(function (t) {
+      const green = (UI.tab === 'data' || UI.tab === 'feedback');
+      return '<button class="tab' + (UI.tab === t.k ? ' active' : '') + (green && UI.tab === t.k ? ' green' : '') +
+        '" data-act="nav" data-tab="' + t.k + '">' + t.l + '</button>';
+    }).join('');
+    const activeItems = UI.tab === 'feedback'
+      ? (UI.fbSub === 'learn' ? (UI.learnSub === 'know' ? DB.knowledge : DB.otherStudy) : DB.ops)
+      : DB.ops;
+    document.getElementById('topbarRight').textContent = UI.tab === 'data'
+      ? '本月已记 ' + salesState().logDays + ' 天 · 数据只存本机'
+      : '近 30 天 ' + activeDays(activeItems) + ' 天有记录 · 数据只存本机';
+    let body;
+    if (UI.tab === 'home') body = renderHome();
+    else if (UI.tab === 'sourcing' || UI.tab === 'listing' || UI.tab === 'ads') body = renderWorkModule(UI.tab);
+    else if (UI.tab === 'data') body = renderCalcPanel() + renderData();
+    else if (UI.tab === 'feedback') body = renderFeedback();
+    else body = renderReport();
+    document.getElementById('view').innerHTML = body;
+    const foots = {
+      home: '工作台数据底座：MSKU 做利润主键、ASIN 做流量主键；文件不上传，结果只存本机。',
+      sourcing: '选品是唯一还没有现成引擎的环节，框架先占位，接 Sorftime 数据后再填。',
+      listing: 'Listing 产出以文件为主，这里只做索引与版本记录。',
+      ads: '广告结论要和利润口径对齐，否则会出现「ACOS 降了但利润没涨」。',
+      data: '这一页是看板不是打卡：报表核算在本地完成，利润为真实值；目标缺口按剩余天数摊平，断一天不扣分。',
+      feedback: '经营只数可控动作、不看单量；学习两个子区各自独立统计。中断不清零，回来记第一条就续上。',
+      report: '周报汇总工作台四模块状态、利润核算、数据目标，以及经营/亚马逊知识/其他学习三段反馈。'
     };
-    r.onerror = function () { toast("文件读取失败"); };
-    r.readAsText(f);
-    e.target.value = "";
-  });
+    document.getElementById('foot').textContent = foots[UI.tab] || '';
+  }
 
-  window.addEventListener("hashchange", function () {
-    var id = location.hash.slice(1);
-    if (validTab(id) && id !== curTab) { curTab = id; renderAll(); }
+  /* ---------- 事件 ---------- */
+  const view = document.getElementById('view');
+  view.addEventListener('click', function (e) {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act, f = UI.form;
+    switch (act) {
+      case 'nav': go(el.dataset.tab); break;
+      case 'fb-sub': UI.fbSub = el.dataset.sub; go('feedback', el.dataset.sub); break;
+      case 'ops-view': UI.opsView = el.dataset.view; go('feedback', UI.opsView); break;
+      case 'ops-type': f.opsType[UI.opsView] = el.dataset.type; renderAll(); break;
+      case 'ops-mins': f.opsMinutes = el.dataset.mins; renderAll(); break;
+      case 'know-mins': f.knowMinutes = el.dataset.mins; renderAll(); break;
+      case 'other-mins': f.otherMinutes = el.dataset.mins; renderAll(); break;
+      case 'know-cat': f.knowCat = el.dataset.cat; renderAll(); break;
+      case 'learn-sub': UI.learnSub = el.dataset.sub; go('feedback', el.dataset.sub); break;
+      case 'wb-import': document.getElementById('wbImportFile').click(); break;
+      case 'wb-clear': {
+        if (window.confirm('清除工作台导入的数据？记录与反馈不受影响。')) {
+          try { localStorage.removeItem(CONTENT.WORKBENCH_KEY); } catch (e) {}
+          toast('已清除'); renderAll();
+        }
+        break;
+      }
+      case 'calc-pick-csv': document.getElementById('calcCsvFile').click(); break;
+      case 'calc-pick-cost': document.getElementById('calcCostFile').click(); break;
+      case 'calc-run': runCalc(); break;
+      case 'calc-send': sendProfitToDaily(); break;
+      case 'calc-clear': {
+        if (window.confirm('清除核算结果？每日记录不受影响。')) {
+          try { localStorage.removeItem(CONTENT.PROFIT_KEY); } catch (e) {}
+          toast('已清除核算结果'); renderAll();
+        }
+        break;
+      }
+      case 'add-ops': addOps(); break;
+      case 'add-know': addKnow(); break;
+      case 'add-other': addOther(); break;
+      case 'sale-save': saveSale(); break;
+      case 'sale-del': delSale(el.dataset.date); break;
+      case 'toggle-goals': UI.goalsOpen = !UI.goalsOpen; renderAll(); break;
+      case 'goal-quick': UI.goalQuick = !UI.goalQuick; renderAll(); break;
+      case 'goal-quick-cancel': UI.goalQuick = false; renderAll(); break;
+      case 'save-goals': {
+        document.querySelectorAll('[data-goal]').forEach(function (i) {
+          const k = i.dataset.goal;
+          if (k === 'monthlyFixedCost') DB.settings[k] = Math.max(0, Number(i.value) || 0);
+          else if (k === 'fx') DB.settings[k] = Math.max(0, Number(i.value) || 6.7141);
+          else DB.settings[k] = Math.max(1, Number(i.value) || 1);
+        });
+        UI.goalQuick = false;
+        save(); renderAll(); toast('目标已保存');
+        break;
+      }
+      case 'toggle-more': UI.moreOpen = !UI.moreOpen; renderAll(); break;
+      case 'bridge-send': sendToOps(el.dataset.kid); break;
+      case 'review-ok': doReview(el.dataset.id, '仍有效'); break;
+      case 'review-changed': doReview(el.dataset.id, '已改'); break;
+      case 'fill-open': UI.fillOpen = UI.fillOpen === el.dataset.id ? null : el.dataset.id; renderAll(); break;
+      case 'fill-save': saveFill(el.dataset.id); break;
+      case 'ai-run': runAI(); break;
+      case 'report-copy': copyReport(); break;
+      case 'toggle-settings': UI.settingsOpen = !UI.settingsOpen; renderAll(); break;
+      case 'save-settings': {
+        document.querySelectorAll('[data-set]').forEach(function (i) {
+          const k = i.dataset.set;
+          const val = i.value.trim();
+          if (k.indexOf('ai.') === 0) DB.settings.ai[k.slice(3)] = val;
+          else DB.settings[k] = Math.max(1, Number(val) || 1);
+        });
+        save(); renderAll(); toast('设置已保存');
+        break;
+      }
+      case 'export': exportJSON(); break;
+      case 'import': document.getElementById('importFile').click(); break;
+      case 'clear': clearAll(); break;
+    }
   });
+  view.addEventListener('input', function (e) {
+    if (e.target.dataset.model) UI.form[e.target.dataset.model] = e.target.value;
+    if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
+  });
+  view.addEventListener('change', function (e) {
+    const t = e.target;
+    if (t.dataset.check) UI.form[t.dataset.check] = t.checked;
+    if (t.dataset.model) UI.form[t.dataset.model] = t.value;
+    if (t.dataset.calc === 'fx') UI.calcFx = t.value;
+    if (t.id === 'importFile') importJSON(t.files && t.files[0]);
+    if (t.id === 'wbImportFile') {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = function () {
+        try {
+          const d = JSON.parse(r.result);
+          if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('bad shape');
+          d.source = 'imported';
+          if (!d.updatedAt) d.updatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
+          localStorage.setItem(CONTENT.WORKBENCH_KEY, JSON.stringify(d));
+          toast('已载入 result.json'); renderAll();
+        } catch (err) { toast('解析失败：请选择本地脚本产出的 JSON'); }
+      };
+      r.readAsText(file); t.value = '';
+    }
+    if (t.id === 'calcCsvFile') {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = function () {
+        UI.calcCsvText = String(r.result || ''); UI.calcCsvName = file.name;
+        toast('结算报表已就绪'); renderAll();
+      };
+      r.readAsText(file, 'UTF-8'); t.value = '';
+    }
+    if (t.id === 'calcCostFile') {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = function () {
+        try {
+          UI.calcRows = window.ProfitEngine.parseXlsxRows(r.result);
+          UI.calcCostName = file.name;
+          toast('成本表已就绪：' + (UI.calcRows.length - 1) + ' 行');
+        } catch (err) { UI.calcRows = null; toast('成本表解析失败：' + err.message); }
+        renderAll();
+      };
+      r.readAsArrayBuffer(file); t.value = '';
+    }
+  });
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    const el = e.target.closest('[data-act="nav"]');
+    if (el) go(el.dataset.tab);
+  });
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    if (!t.classList || !t.classList.contains('input')) return;
+    if (t.dataset.model === 'opsText') addOps();
+    else if (t.dataset.model === 'knowText') addKnow();
+    else if (t.dataset.model === 'otherText') addOther();
+    else if (t.dataset.model && String(t.dataset.model).indexOf('sale') === 0) saveSale();
+  });
+  window.addEventListener('hashchange', function () { syncFromHash(); renderAll(); });
 
-  var initial = location.hash.slice(1);
-  if (validTab(initial)) curTab = initial;
+  /* ---------- 启动 ---------- */
+  syncFromHash();
   renderAll();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('sw.js').catch(function () { });
+  }
 })();
 </script>
 </body>
