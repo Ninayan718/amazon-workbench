@@ -78,7 +78,7 @@ button:disabled{cursor:default;opacity:.6}
 .row{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--line)}
 .row:last-child{border-bottom:none}
 .dot{width:11px;height:11px;border-radius:3px;flex:none}
-.dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.gray{background:#B4B2A9}
+.dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.gray{background:#B4B2A9} .dot.red{background:#C0392B}
 .row-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tag{font-size:11px;padding:2px 7px;border-radius:10px;white-space:nowrap}
 .tag.blue{background:var(--blue-soft);color:var(--blue-dark)}
@@ -576,6 +576,184 @@ button:disabled{cursor:default;opacity:.6}
   };
 })(window);
 </script>
+<script>/* 广告搜索词分析引擎（纯前端、零依赖）
+   解析 Sponsored Products 搜索词报告（CSV/XLSX 文本），按周归档、逐词诊断、周对比、出调整清单。
+   规则来自 amazon-ppc-campaign 技能 Mode B。 */
+(function (global) {
+  "use strict";
+
+  /* 列名别名：中英文 + 常见变体 */
+  var COLS = {
+    term: ['客户搜索词', '搜索词', '搜索字词', 'customer search term', 'search term', 'customer search term '],
+    match: ['匹配类型', '匹配方式', 'match type'],
+    campaign: ['广告活动名称', '广告活动', 'campaign name', 'campaign'],
+    adgroup: ['广告组名称', '广告组', 'ad group name', 'ad group'],
+    impr: ['展示量', '曝光量', '展现量', 'impressions'],
+    clicks: ['点击量', '点击', 'clicks'],
+    spend: ['花费', '广告花费', '成本', 'spend', 'cost'],
+    sales: ['销售额', '7天销售额', '广告销售额', 'sales', '7 day sales', 'attributed sales'],
+    orders: ['订单量', '订单数', '7天订单', '订单', 'orders', '7 day orders', 'attributed orders']
+  };
+  function norm(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+  function findCol(header, key) {
+    var aliases = COLS[key];
+    for (var i = 0; i < header.length; i++) {
+      var h = norm(header[i]);
+      for (var j = 0; j < aliases.length; j++) if (h === norm(aliases[j])) return i;
+    }
+    return -1;
+  }
+  function num(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[$,\s%]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+  function r2(n) { return Math.round(n * 100) / 100; }
+
+  /* 支持 CSV 与从 xlsx 解析出的二维数组 */
+  function parseCSV(text) {
+    var rows = [], row = [], field = '', i = 0, inQ = false;
+    text = text.replace(/^\uFEFF/, '');
+    while (i < text.length) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQ = true; i++; continue; }
+      if (ch === ',') { row.push(field); field = ''; i++; continue; }
+      if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+      if (ch === '\r') { i++; continue; }
+      field += ch; i++;
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function parseRows(matrix) {
+    if (!matrix || matrix.length < 2) throw new Error('报告内容为空或只有表头');
+    var header = matrix[0], idx = {}, k;
+    for (k in COLS) if (Object.prototype.hasOwnProperty.call(COLS, k)) idx[k] = findCol(header, k);
+    var missing = [];
+    if (idx.term < 0) missing.push('客户搜索词');
+    if (idx.spend < 0 && idx.clicks < 0) missing.push('花费/点击量至少一列');
+    if (missing.length) throw new Error('报告缺少列：' + missing.join('、') + '。表头读到：' + header.slice(0, 10).join(' / '));
+    var out = [];
+    for (var i = 1; i < matrix.length; i++) {
+      var r = matrix[i];
+      if (!r || r.length < 2) continue;
+      var term = String(r[idx.term] || '').trim();
+      if (!term || term === '总计' || norm(term) === 'total') continue;
+      out.push({
+        term: term,
+        match: idx.match >= 0 ? String(r[idx.match] || '').trim() : '',
+        campaign: idx.campaign >= 0 ? String(r[idx.campaign] || '').trim() : '',
+        adgroup: idx.adgroup >= 0 ? String(r[idx.adgroup] || '').trim() : '',
+        impr: idx.impr >= 0 ? num(r[idx.impr]) : 0,
+        clicks: idx.clicks >= 0 ? num(r[idx.clicks]) : 0,
+        spend: idx.spend >= 0 ? num(r[idx.spend]) : 0,
+        sales: idx.sales >= 0 ? num(r[idx.sales]) : 0,
+        orders: idx.orders >= 0 ? num(r[idx.orders]) : 0
+      });
+    }
+    if (!out.length) throw new Error('没有读到有效的搜索词行');
+    return out;
+  }
+
+  /* 单周汇总 */
+  function summarize(rows) {
+    var impr = 0, clicks = 0, spend = 0, sales = 0, orders = 0;
+    rows.forEach(function (r) { impr += r.impr; clicks += r.clicks; spend += r.spend; sales += r.sales; orders += r.orders; });
+    return {
+      terms: rows.length, impr: Math.round(impr), clicks: Math.round(clicks),
+      spend: r2(spend), sales: r2(sales), orders: Math.round(orders),
+      ctr: clicks && impr ? r2(clicks / impr * 100) : 0,
+      cvr: clicks ? r2(orders / clicks * 100) : 0,
+      cpc: clicks ? r2(spend / clicks) : 0,
+      acos: sales ? r2(spend / sales * 100) : null
+    };
+  }
+
+  /* 逐词诊断：返回 { level, action, reason, detail } */
+  function diagnose(r, targetAcos) {
+    var acos = r.sales ? r.spend / r.sales * 100 : (r.spend > 0 ? Infinity : 0);
+    var ctr = r.impr ? r.clicks / r.impr * 100 : 0;
+    var cvr = r.clicks ? r.orders / r.clicks * 100 : 0;
+    if (r.orders >= 2 && acos < targetAcos) {
+      return { level: 'good', action: '升入精准层', reason: '出单≥2 且 ACOS 低于目标', detail: r.orders + '单 / ACOS ' + (isFinite(acos) ? acos.toFixed(1) + '%' : '—'), acos: acos };
+    }
+    if (r.clicks >= 15 && r.orders === 0) {
+      return { level: 'bad', action: 'Exact 否定', reason: '点击≥15 且零转化', detail: r.clicks + ' clicks / $' + r.spend.toFixed(2) + ' 无单', acos: acos };
+    }
+    if (r.clicks >= 30 && acos > targetAcos * 2) {
+      return { level: 'bad', action: '降竞价 30% 或暂停', reason: '点击≥30 且 ACOS 超目标 2 倍', detail: 'ACOS ' + (isFinite(acos) ? acos.toFixed(1) + '%' : '无销售'), acos: acos };
+    }
+    if (r.impr >= 1000 && ctr < 0.3 && r.clicks < 5) {
+      return { level: 'warn', action: '收紧匹配 / 否定词根', reason: '高曝光低 CTR（<0.3%）', detail: r.impr + ' 曝光 / CTR ' + ctr.toFixed(2) + '%', acos: acos };
+    }
+    if (r.clicks >= 10 && ctr >= 0.5 && cvr < 3 && r.orders <= 1) {
+      return { level: 'warn', action: 'Listing 待办（不盲降竞价）', reason: 'CTR 尚可但 CVR 低，问题可能在详情页', detail: 'CTR ' + ctr.toFixed(2) + '% / CVR ' + cvr.toFixed(1) + '%', acos: acos };
+    }
+    if (r.sales > 0 && acos < targetAcos * 0.6 && r.impr < 500) {
+      return { level: 'good', action: '加注（提竞价/预算）', reason: 'ACOS 低但曝光不足', detail: 'ACOS ' + acos.toFixed(1) + '% / 曝光 ' + r.impr, acos: acos };
+    }
+    return { level: 'normal', action: '观察', reason: '未触发阈值', detail: '', acos: acos };
+  }
+
+  /* 生成一周分析（含逐词诊断与优先级清单） */
+  function analyzeWeek(rows, targetAcos) {
+    var s = summarize(rows);
+    var diags = rows.map(function (r) {
+      var d = diagnose(r, targetAcos);
+      return Object.assign({}, r, { acos: isFinite(d.acos) ? r2(d.acos) : null, ctr: r.impr ? r2(r.clicks / r.impr * 100) : 0, cvr: r.clicks ? r2(r.orders / r.clicks * 100) : 0, action: d.action, level: d.level, reason: d.reason, diagDetail: d.detail });
+    });
+    var order = { bad: 0, warn: 1, good: 2, normal: 3 };
+    diags.sort(function (a, b) { return order[a.level] - order[b.level] || b.spend - a.spend; });
+    var advice = diags.filter(function (d) { return d.level !== 'normal'; }).slice(0, 30);
+    var neg = diags.filter(function (d) { return d.action === 'Exact 否定' || d.action === '收紧匹配 / 否定词根'; });
+    return { summary: s, rows: diags, advice: advice, negCount: neg.length, targetAcos: targetAcos };
+  }
+
+  /* 周对比：本期 vs 上期 */
+  function compare(cur, prev) {
+    if (!prev) return { first: true, note: '这是第一份报告，下次上传后会自动对比周变化。', metrics: [], changes: [] };
+    var a = cur.summary, b = prev.summary, metrics = [];
+    [['花费', 'spend'], ['销售额', 'sales'], ['订单', 'orders'], ['点击', 'clicks'], ['曝光', 'impr']].forEach(function (p) {
+      var now = a[p[1]], was = b[p[1]], diff = now - was, pct = was ? r2(diff / was * 100) : null;
+      metrics.push({ key: p[0], now: now, was: was, diff: r2(diff), pct: pct });
+    });
+    if (a.acos !== null && b.acos !== null) metrics.push({ key: 'ACOS', now: a.acos, was: b.acos, diff: r2(a.acos - b.acos), pct: null });
+    var prevMap = {};
+    (prev.rows || []).forEach(function (r) { prevMap[r.term] = r; });
+    var changes = [];
+    (cur.rows || []).forEach(function (r) {
+      var old = prevMap[r.term];
+      if (!old) { if (r.level === 'bad' || r.level === 'good') changes.push({ term: r.term, type: 'new', text: '新出现' + (r.level === 'bad' ? '，且触发优化规则' : ''), level: r.level }); return; }
+      if (r.orders === 0 && old.orders > 0) changes.push({ term: r.term, type: 'worse', text: '上周 ' + old.orders + ' 单，本周零单', level: 'bad' });
+      else if (r.orders > 0 && old.orders === 0) changes.push({ term: r.term, type: 'better', text: '上周零单，本周 ' + r.orders + ' 单', level: 'good' });
+      else if (r.spend > old.spend * 1.5 && r.orders <= old.orders) changes.push({ term: r.term, type: 'worse', text: '花费涨 ' + Math.round((r.spend / (old.spend || 1) - 1) * 100) + '% 但单量没涨', level: 'bad' });
+    });
+    return { first: false, metrics: metrics, changes: changes };
+  }
+
+  /* ISO 周键 */
+  function weekKey(ts) {
+    var d = new Date(ts || Date.now());
+    var target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = (target.getDay() + 6) % 7;
+    target.setDate(target.getDate() - day + 3);
+    var firstThu = new Date(target.getFullYear(), 0, 4);
+    var fday = (firstThu.getDay() + 6) % 7;
+    firstThu.setDate(firstThu.getDate() - fday + 3);
+    var week = 1 + Math.round((target - firstThu) / (7 * 86400000));
+    return target.getFullYear() + '-W' + (week < 10 ? '0' : '') + week;
+  }
+
+  global.PPCEngine = {
+    parseCSV: parseCSV, parseRows: parseRows, summarize: summarize,
+    diagnose: diagnose, analyzeWeek: analyzeWeek, compare: compare, weekKey: weekKey
+  };
+})(window);
+</script>
 <script>/* 文案与常量：所有反馈措辞集中在这里，方便以后调整语气 */
 const CONTENT = {
   STORAGE_KEY: 'amz_feedback_v1',
@@ -829,6 +1007,7 @@ const CONTENT = {
   const UI = {
     tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know',
     calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '', calcFormulaOpen: false,
+    ppcRows: null, ppcName: '', ppcTarget: '30', ppcView: 'current', ppcSelected: '',
     form: {
       opsText: '', opsType: { opt: '广告', src: '看品' }, opsMinutes: '25', opsWatch: false,
       knowText: '', knowCat: '广告', knowMinutes: '25', knowRule: false,
@@ -1433,6 +1612,141 @@ const CONTENT = {
     };
     return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (p[n] || '') + '"/></svg>';
   }
+  /* ---------- 广告页：搜索词报告分析 ---------- */
+  function ppcLoad() {
+    try {
+      const d = JSON.parse(localStorage.getItem('amz_ppc_v1') || 'null');
+      return (d && Array.isArray(d.weeks)) ? d : { weeks: [] };
+    } catch (e) { return { weeks: [] }; }
+  }
+  function ppcSave(d) {
+    try { localStorage.setItem('amz_ppc_v1', JSON.stringify(d)); return true; }
+    catch (e) { toast('广告数据太大，本机存不下'); return false; }
+  }
+  function ppcLatest() { const d = ppcLoad(); return d.weeks.length ? d.weeks[d.weeks.length - 1] : null; }
+  function ppcPrev() { const d = ppcLoad(); return d.weeks.length > 1 ? d.weeks[d.weeks.length - 2] : null; }
+
+  function runPpcAnalyze() {
+    if (!UI.ppcRows || !UI.ppcRows.length) { toast('先上传搜索词报告'); return; }
+    const target = Number(UI.ppcTarget);
+    if (!target || target <= 0) { toast('目标 ACOS 要填大于 0 的数字'); return; }
+    try {
+      const a = window.PPCEngine.analyzeWeek(UI.ppcRows, target);
+      const d = ppcLoad();
+      const wk = window.PPCEngine.weekKey(Date.now());
+      const entry = {
+        week: wk, uploadedAt: Date.now(), reportName: UI.ppcName,
+        targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount
+      };
+      /* 同一周覆盖，不同周追加 */
+      const at = d.weeks.findIndex(function (w) { return w.week === wk; });
+      if (at >= 0) d.weeks[at] = entry; else d.weeks.push(entry);
+      ppcSave(d);
+      UI.ppcRows = null; UI.ppcName = '';
+      toast('分析完成：' + a.summary.terms + ' 个搜索词，' + a.advice.length + ' 条建议');
+      renderAll();
+    } catch (e) { toast('分析失败：' + e.message); }
+  }
+
+  function renderAds() {
+    const store = ppcLoad(), cur = ppcLatest(), prev = ppcPrev();
+    const view = UI.ppcView === 'history' ? (store.weeks[UI.ppcSelected] || cur) : cur;
+    let h = '<div class="page-head"><h1>广告</h1><p>搜索词报告分析 · 每周二上传，自动与上周对比给调整意见</p></div>';
+
+    /* 上传区 */
+    h += '<div class="card"><div class="card-title">本周搜索词报告 <span class="tag green">本地解析</span></div>' +
+      '<div class="card-sub">从 Amazon Ads → 搜索词报告导出（CSV 或 XLSX）。字段含客户搜索词/匹配类型/展示/点击/花费/销售额/订单即可。文件不上传。</div>' +
+      '<div class="form-grid" style="margin-top:10px">' +
+      '<div class="field"><label>报告文件</label><button class="btn" data-act="ppc-pick">' + esc(UI.ppcName || '选择报告') + '</button></div>' +
+      '<div class="field"><label>目标 ACOS %</label><input type="number" min="1" step="1" data-ppc="target" value="' + esc(UI.ppcTarget) + '"></div>' +
+      '</div><div class="pill-row"><button class="btn btn-primary" data-act="ppc-run">分析并归档本周</button>' +
+      '<span class="spacer"></span><button class="btn btn-sm" data-act="ppc-view-cur">本周</button>' +
+      '<button class="btn btn-sm" data-act="ppc-view-hist">历史周</button></div>' +
+      '<input type="file" id="ppcFile" accept=".csv,.xlsx,text/csv" style="display:none"></div>';
+
+    /* 历史周切换 */
+    if (UI.ppcView === 'history' && store.weeks.length) {
+      h += '<div class="card"><div class="card-title">历史周</div><div class="pill-row">';
+      store.weeks.forEach(function (w, i) {
+        h += '<button class="btn btn-sm' + (i === Number(UI.ppcSelected) ? ' primary' : '') + '" data-act="ppc-select" data-i="' + i + '">' + esc(w.week) + '</button>';
+      });
+      h += '</div></div>';
+    }
+
+    if (!view) {
+      h += '<div class="card"><div class="empty">还没有分析报告。上传本周搜索词报告即可开始；每周二上传一次，系统自动留档并与上周对比。</div></div>';
+      return h;
+    }
+
+    /* 汇总 */
+    const s = view.summary;
+    h += '<div class="section-title">' + esc(view.week) + ' 汇总 <small>目标 ACOS ' + esc(view.targetAcos) + '%' + (view.reportName ? ' · ' + esc(view.reportName) : '') + '</small></div>';
+    h += metrics([
+      { label: '花费', value: fmtMoney(s.spend), small: s.clicks + ' 次点击' },
+      { label: '销售额', value: fmtMoney(s.sales), small: s.orders + ' 单' },
+      { label: 'ACOS', value: s.acos === null ? '—' : s.acos + '%', small: '目标 ' + view.targetAcos + '%' },
+      { label: 'CTR / CVR', value: s.ctr + '%', small: 'CVR ' + s.cvr + '%' }
+    ]);
+
+    /* 周对比 */
+    if (UI.ppcView !== 'history') {
+      const cmp = window.PPCEngine.compare(cur, prev);
+      h += '<div class="card"><div class="card-title">周对比 <small>' + (cmp.first ? '首份报告' : '本周 vs 上周') + '</small></div>';
+      if (cmp.first) h += '<div class="hint">' + esc(cmp.note) + '</div>';
+      else {
+        h += '<div class="list">';
+        cmp.metrics.forEach(function (m) {
+          const up = m.diff > 0, good = m.key === 'ACOS' ? !up : up;
+          h += '<div class="row"><span class="row-text">' + esc(m.key) + '</span>' +
+            '<span class="tag ' + (good ? 'green' : 'gray') + '">' + fmtSigned(m.diff, m.key) + '</span>' +
+            '<span class="mins">' + fmtVal(m.was, m.key) + ' → ' + fmtVal(m.now, m.key) + (m.pct !== null ? '（' + (m.pct > 0 ? '+' : '') + m.pct + '%）' : '') + '</span></div>';
+        });
+        cmp.changes.forEach(function (c) {
+          h += '<div class="row"><span class="dot ' + (c.level === 'bad' ? 'red' : c.level === 'good' ? 'green' : 'gray') + '"></span>' +
+            '<span class="row-text">' + esc(c.term) + '</span><span class="tag ' + (c.level === 'bad' ? 'gray' : 'green') + '">' + esc(c.type) + '</span>' +
+            '<span class="mins">' + esc(c.text) + '</span></div>';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
+    }
+
+    /* 调整清单 */
+    h += '<div class="card"><div class="card-title">调整清单 <small>按优先级 · 单次改动不超过词数 30%</small></div>';
+    if (!view.advice || !view.advice.length) h += '<div class="empty">本周没有词触发优化阈值，保持观察。</div>';
+    else {
+      h += '<div class="list">';
+      view.advice.forEach(function (a, i) {
+        const color = a.level === 'bad' ? 'gray' : a.level === 'good' ? 'green' : 'blue';
+        h += '<div class="row"><span class="tag ' + color + '">' + (i + 1) + '</span>' +
+          '<span class="row-text" title="' + esc(a.term) + '">' + esc(a.term) +
+          '<br><span class="mins">' + esc(a.reason) + ' · ' + esc(a.diagDetail) + '</span></span>' +
+          '<span class="tag ' + color + '">' + esc(a.action) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="hint">规则：出单≥2且ACOS达标→升精准；点击≥15零单→Exact否定；点击≥30且ACOS超目标2倍→降竞价30%；高曝光低CTR→收紧；CTR好CVR差→查Listing；低ACOS低曝光→加注。每次只改一个变量，14 天后复盘。</div>';
+    }
+    h += '</div>';
+
+    /* 全部搜索词 */
+    h += '<div class="card"><div class="card-title">全部搜索词 <small>' + view.rows.length + ' 个</small></div>' +
+      '<div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>搜索词</th><th>点击</th><th>花费$</th><th>销售$</th><th>单</th><th>ACOS</th><th>动作</th></tr></thead><tbody>';
+    view.rows.forEach(function (r) {
+      h += '<tr><td class="mono" title="' + esc(r.term) + '">' + esc(r.term.slice(0, 22)) + '</td>' +
+        '<td>' + r.clicks + '</td><td>' + fmtMoney(r.spend) + '</td><td>' + fmtMoney(r.sales) + '</td>' +
+        '<td>' + r.orders + '</td><td>' + (r.acos === null ? '—' : r.acos + '%') + '</td>' +
+        '<td>' + esc(r.action) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+  function fmtVal(n, key) { return (key === '花费' || key === '销售额') ? fmtMoney(n) : (key === 'ACOS' ? n + '%' : String(n)); }
+  function fmtSigned(diff, key) {
+    const money = key === '花费' || key === '销售额';
+    if (money) return (diff >= 0 ? '+' : '−') + fmtMoney(Math.abs(diff));
+    return (diff > 0 ? '+' : '') + diff;
+  }
+
   function renderHome() {
     const st = wbState(), k = st.kpi;
     let h = '<div class="page-head"><h1>总览</h1><p>工作台数据底座 · 账期 ' + esc(st.period) + '</p></div>';
@@ -1508,8 +1822,13 @@ const CONTENT = {
       result.period = (result.daily.length ? result.daily[0].date.slice(0, 7) : '本次报表');
       result.generatedAt = Date.now();
       profitSave(result);
+      /* 表里的非订单费用合计直接作为月固定成本（¥），真实到手 = 订单利润 − 它 */
+      const fixedFromTable = Math.round((-result.summary.otherUsd) * fx);
+      DB.settings.monthlyFixedCost = fixedFromTable;
+      DB.settings.fixedCostSource = 'report';
+      save();
       UI.calcOpen = false;
-      toast('核算完成：' + result.summary.orders + ' 单，订单利润 ¥' + Math.round(result.summary.orderProfitCny));
+      toast('核算完成：' + result.summary.orders + ' 单 · 表内固定成本 ¥' + fixedFromTable + ' 已代入真实到手');
       renderAll();
     } catch (e) { toast('核算失败：' + e.message); }
   }
@@ -1848,8 +2167,10 @@ const CONTENT = {
       '<span>真实到手 <b style="font-weight:500">¥' + s.realProfit + '</b> / ¥' + s.goal + '</span>' +
       '<span style="color:var(--text-3)">' + s.pct + '%</span></div>' +
       '<div class="bar green"><div class="bar-fill green" style="width:' + s.pct + '%"></div></div>' +
-      '<div class="hint">订单利润 ¥' + s.monthProfit + ' − 月固定成本 ¥' + s.fixed + ' = 真实到手 ¥' + s.realProfit +
-      '。固定成本含 Vine / 仓储 / 订阅等（本月核算约 ¥1420）。</div></div>';
+      '<div class="hint">订单利润 ¥' + s.monthProfit + ' − 表内固定成本 ¥' + s.fixed + ' = 真实到手 ¥' + s.realProfit +
+      (DB.settings.fixedCostSource === 'report'
+        ? '。固定成本直接取核算表的非订单费用合计（Vine/仓储/订阅/广告/Coupon 等），随每次核算自动更新。'
+        : '。可在设置里改；跑一次报表核算后会自动代入表内固定成本。') + '</div></div>';
 
     /* 今日目标英雄卡 */
     html += '<div class="echo green" style="padding:18px;margin-bottom:12px">' +
@@ -2009,7 +2330,8 @@ const CONTENT = {
       : '近 30 天 ' + activeDays(activeItems) + ' 天有记录 · 数据只存本机';
     let body;
     if (UI.tab === 'home') body = renderHome();
-    else if (UI.tab === 'sourcing' || UI.tab === 'listing' || UI.tab === 'ads') body = renderWorkModule(UI.tab);
+    else if (UI.tab === 'ads') body = renderAds();
+    else if (UI.tab === 'sourcing' || UI.tab === 'listing') body = renderWorkModule(UI.tab);
     else if (UI.tab === 'data') body = renderCalcPanel() + renderData();
     else if (UI.tab === 'feedback') body = renderFeedback();
     else body = renderReport();
@@ -2062,6 +2384,11 @@ const CONTENT = {
         }
         break;
       }
+      case 'ppc-pick': document.getElementById('ppcFile').click(); break;
+      case 'ppc-run': runPpcAnalyze(); break;
+      case 'ppc-view-cur': UI.ppcView = 'current'; renderAll(); break;
+      case 'ppc-view-hist': UI.ppcView = 'history'; UI.ppcSelected = String(Math.max(0, ppcLoad().weeks.length - 1)); renderAll(); break;
+      case 'ppc-select': UI.ppcSelected = el.dataset.i; renderAll(); break;
       case 'add-ops': addOps(); break;
       case 'add-know': addKnow(); break;
       case 'add-other': addOther(); break;
@@ -2108,12 +2435,14 @@ const CONTENT = {
   view.addEventListener('input', function (e) {
     if (e.target.dataset.model) UI.form[e.target.dataset.model] = e.target.value;
     if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
+    if (e.target.dataset.ppc === 'target') UI.ppcTarget = e.target.value;
   });
   view.addEventListener('change', function (e) {
     const t = e.target;
     if (t.dataset.check) UI.form[t.dataset.check] = t.checked;
     if (t.dataset.model) UI.form[t.dataset.model] = t.value;
     if (t.dataset.calc === 'fx') UI.calcFx = t.value;
+    if (t.dataset.ppc === 'target') UI.ppcTarget = t.value;
     if (t.id === 'importFile') importJSON(t.files && t.files[0]);
     if (t.id === 'wbImportFile') {
       const file = t.files && t.files[0];
@@ -2154,6 +2483,23 @@ const CONTENT = {
         renderAll();
       };
       r.readAsArrayBuffer(file); t.value = '';
+    }
+    if (t.id === 'ppcFile') {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      const isXlsx = /\.xlsx$/i.test(file.name);
+      const r = new FileReader();
+      r.onload = function () {
+        try {
+          const matrix = isXlsx ? window.ProfitEngine.parseXlsxRows(r.result) : window.PPCEngine.parseCSV(String(r.result || ''));
+          UI.ppcRows = window.PPCEngine.parseRows(matrix);
+          UI.ppcName = file.name;
+          toast('报告已就绪：' + UI.ppcRows.length + ' 个搜索词');
+        } catch (err) { UI.ppcRows = null; toast('报告解析失败：' + err.message); }
+        renderAll();
+      };
+      if (isXlsx) r.readAsArrayBuffer(file); else r.readAsText(file, 'UTF-8');
+      t.value = '';
     }
   });
   document.getElementById('tabs').addEventListener('click', function (e) {
