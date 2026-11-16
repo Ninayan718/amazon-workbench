@@ -1157,7 +1157,11 @@ const CONTENT = {
   function salesState() {
     const st = DB.settings;
     const goal = Number(st.monthlyProfitGoal) || 3000;
-    const fixed = Number(st.monthlyFixedCost) || 0;
+    /* 固定成本优先取核算表里的实际值（非订单费用），避免旧数据里被清成 0 导致真实到手虚高 */
+    const pf = profitLoad();
+    const fixed = pf && pf.summary
+      ? Math.round((-pf.summary.otherUsd) * (Number(st.fx) || 6.7141))
+      : (Number(st.monthlyFixedCost) || 1420);
     const warn = Number(st.acosWarn) || 30;
     const fx = Number(st.fx) || 6.7141;
     const mk = thisMonthKey();
@@ -2190,7 +2194,7 @@ const CONTENT = {
 
     html += metrics([
       { label: '今日订单利润', value: '¥' + s.todayProfit, small: s.hasToday ? s.todayOrders + ' 单' : '未记' },
-      { label: '本月订单利润', value: '¥' + s.monthProfit, small: s.monthOrders + ' 单' },
+      { label: '本月真实到手', value: '¥' + s.realProfit, small: '已扣固定成本 ¥' + s.fixed },
       { label: '本月已记', value: s.logDays + ' 天', small: '真实利润口径' }
     ]);
 
