@@ -203,7 +203,17 @@ button:disabled{cursor:default;opacity:.6}
 .sop-stage-dot.red{background:#C0392B}.sop-stage-dot.orange{background:#BA7517}
 .sop-stage-dot.green{background:var(--green)}.sop-stage-dot.blue{background:var(--blue)}
 .sop-stage-dot.purple{background:#7F77DD}
+/* 广告优化清单表格 */
+.tbl-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--r-sm)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{padding:6px 8px;text-align:left;border-bottom:0.5px solid var(--line);white-space:nowrap;vertical-align:top}
+.tbl th{font-size:11px;color:var(--text-3);font-weight:500;background:var(--neutral)}
+.tbl .mins{white-space:normal;min-width:120px;max-width:260px}
+.tbl.wide{min-width:900px}
+textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);border-radius:var(--r-sm);padding:8px;color:var(--text);resize:vertical;line-height:1.5}
 @media (max-width:760px){
+  .tbl{font-size:11px}
+  .tbl th,.tbl td{padding:5px 6px}
   .sop-stages{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
   .sop-stage{padding:7px 2px}
   .sop-stage-l{font-size:10px}
@@ -631,8 +641,12 @@ button:disabled{cursor:default;opacity:.6}
     impr: ['展示量', '曝光量', '展现量', 'impressions'],
     clicks: ['点击量', '点击', 'clicks'],
     spend: ['花费', '广告花费', '成本', 'spend', 'cost'],
-    sales: ['销售额', '7天销售额', '广告销售额', 'sales', '7 day sales', 'attributed sales'],
-    orders: ['订单量', '订单数', '7天订单', '订单', 'orders', '7 day orders', 'attributed orders']
+    sales: ['销售额', '7天销售额', '7天总销售额', '广告销售额', '销售额(', 'sales', '7 day sales', '7 day total sales', 'attributed sales'],
+    orders: ['订单量', '订单数', '7天订单', '7天总订单数(#)', '7天总订单数', '订单', 'orders', '7 day orders', 'attributed orders'],
+    ctr: ['点击率 (ctr)', '点击率(ctr)', '点击率', 'ctr'],
+    cpc: ['单次点击成本 (cpc)', '单次点击成本(cpc)', 'cpc'],
+    keyword: ['投放', '关键词', 'keyword', 'targeting'],
+    startDate: ['开始日期', 'start date']
   };
   function norm(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
   function findCol(header, key) {
@@ -688,11 +702,15 @@ button:disabled{cursor:default;opacity:.6}
         match: idx.match >= 0 ? String(r[idx.match] || '').trim() : '',
         campaign: idx.campaign >= 0 ? String(r[idx.campaign] || '').trim() : '',
         adgroup: idx.adgroup >= 0 ? String(r[idx.adgroup] || '').trim() : '',
+        keyword: idx.keyword >= 0 ? String(r[idx.keyword] || '').trim() : '',
         impr: idx.impr >= 0 ? num(r[idx.impr]) : 0,
         clicks: idx.clicks >= 0 ? num(r[idx.clicks]) : 0,
         spend: idx.spend >= 0 ? num(r[idx.spend]) : 0,
         sales: idx.sales >= 0 ? num(r[idx.sales]) : 0,
-        orders: idx.orders >= 0 ? num(r[idx.orders]) : 0
+        orders: idx.orders >= 0 ? num(r[idx.orders]) : 0,
+        reporterCtr: idx.ctr >= 0 ? num(r[idx.ctr]) : null,
+        reporterCpc: idx.cpc >= 0 ? num(r[idx.cpc]) : null,
+        startDate: idx.startDate >= 0 ? num(r[idx.startDate]) : null
       });
     }
     if (!out.length) throw new Error('没有读到有效的搜索词行');
@@ -788,9 +806,178 @@ button:disabled{cursor:default;opacity:.6}
     return target.getFullYear() + '-W' + (week < 10 ? '0' : '') + week;
   }
 
+  /* ================= 优化脚本（单干卖家 · 利润优先） =================
+     输入 rows 为 parseRows 结果；params 业务参数。
+     输出：诊断摘要、优先行动清单、四类可粘贴清单、预算重分配、测试计划、风险缺口。 */
+  function excelDate(serial) {
+    if (!serial || serial < 20000) return '';
+    var d = new Date(Math.round((serial - 25569) * 86400000));
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+  }
+
+  /* 按搜索词聚合：同一词多行（不同活动/匹配）合并，保留来源明细 */
+  function aggregateByTerm(rows) {
+    var map = {}, order = [];
+    rows.forEach(function (r) {
+      var key = r.term;
+      if (!map[key]) {
+        map[key] = { term: r.term, impr: 0, clicks: 0, spend: 0, sales: 0, orders: 0, sources: [] };
+        order.push(key);
+      }
+      var a = map[key];
+      a.impr += r.impr; a.clicks += r.clicks; a.spend += r.spend; a.sales += r.sales; a.orders += r.orders;
+      a.sources.push({ match: r.match, campaign: r.campaign, adgroup: r.adgroup, keyword: r.keyword, spend: r.spend, clicks: r.clicks, orders: r.orders });
+    });
+    return order.map(function (k) { return map[k]; });
+  }
+
+  /* 搜索词意图初判（仅按词面，需前台验证的会标注） */
+  function intentGuess(term) {
+    var t = norm(term);
+    if (/\b(free|cheap|used|wholesale|repair|diy|how to|review|manual|instructions|replacement)\b/.test(t)) return { bad: true, hint: '低意图/非购买词' };
+    if (/^b0[a-z0-9]{8}$/.test(t)) return { asin: true, hint: 'ASIN 流量词' };
+    if (/\b( Detector|detector|monitor|sensor|co2|air quality)\b/.test(t) && /\b(dog|ball|pet|interactive)\b/.test(t)) return { bad: true, hint: '跨类目错配' };
+    return { bad: false, hint: '' };
+  }
+
+  function analyzeOptimize(rows, params) {
+    params = params || {};
+    var price = num(params.price), margin = num(params.margin) / 100;
+    var budget = num(params.budget), topN = num(params.topN) || 30;
+    var targetGiven = num(params.targetAcos);
+    var targetAssumed = !(targetGiven > 0);
+    var target = targetAssumed ? (margin > 0 ? margin * 0.7 * 100 : 0) : targetGiven;
+    /* 可接受广告占比：默认 0.7，即毛利里最多拿 70% 做广告 */
+    var adShare = num(params.adShare) || 0.7;
+    var convCap = price * margin * adShare;           // 单次转化成本上限（USD）
+    var full = aggregateByTerm(rows);
+    var total = summarize(rows);
+    var considered = full.slice().sort(function (a, b) { return b.spend - a.spend; }).slice(0, topN);
+
+    var items = considered.map(function (r) {
+      var acos = r.sales > 0 ? r.spend / r.sales * 100 : (r.spend > 0 ? Infinity : 0);
+      var ctr = r.impr ? r.clicks / r.impr * 100 : 0;
+      var cvr = r.clicks ? r.orders / r.clicks * 100 : 0;
+      var cpc = r.clicks ? r.spend / r.clicks : 0;
+      var perConv = r.orders ? r.spend / r.orders : (r.spend > 0 ? r.spend : 0); // 单次转化花费
+      var ig = intentGuess(r.term);
+      var cat, pri, action, negType, bid, reason, needFront = false, profitMismatch = false;
+
+      /* 否定优先：明显不相关 / 高点击零单 / 花费超上限3倍 / 大额零单（单干卖家 ≥$10 即止损） */
+      var irrelevant = ig.bad;
+      var highClickZero = r.clicks >= 20 && r.orders === 0;
+      var burnZero = convCap > 0 && r.spend > convCap * 3 && r.orders === 0;
+      var bigBleed = r.orders === 0 && r.spend >= 10;   // 容错小：10 美元零单立即停
+      if (irrelevant || highClickZero || burnZero || bigBleed) {
+        cat = '否定'; pri = 'P0';
+        negType = ig.bad && !ig.asin ? '否定词组' : '否定精准';
+        if (ig.asin || (!ig.bad && r.orders === 0)) negType = '否定精准';
+        action = negType === '否定词组' ? '加否定词组' : '加否定精准';
+        reason = irrelevant ? ('词面判定：' + ig.hint) :
+          (bigBleed ? ('花费 $' + r.spend.toFixed(2) + ' 零转化，单干容错低，立即止损') :
+          (burnZero ? ('花费 $' + r.spend.toFixed(2) + ' 超单次转化上限 $' + convCap.toFixed(2) + ' 的3倍且零单') :
+          ('点击 ' + r.clicks + ' 零单，ACOS 超目标2倍')));
+      }
+      /* 收割：多单且达标，或CVR≥10%且ACOS可控 */
+      else if ((r.orders >= 2 && acos <= target) || (r.orders >= 1 && r.spend >= 2 && cvr >= 10 && acos <= target)) {
+        cat = '收割'; pri = 'P1';
+        action = '移入独立精准匹配组，专属出价；原活动加否定精准避免内部竞争';
+        negType = '否定精准';
+        bid = cpc ? r2(cpc * 0.9) : null;  // 起始出价按当前CPC的9折
+        reason = r.orders + ' 单 · ACOS ' + (isFinite(acos) ? acos.toFixed(1) : '∞') + '% · CVR ' + cvr.toFixed(1) + '%';
+        if (convCap > 0 && cpc > convCap) { profitMismatch = true; needFront = true; reason += '；但CPC超单次转化上限，利润不匹配'; }
+        var hasWinLoser = r.sources.length > 1 && r.sources.some(function (s) { return s.orders > 0; }) && r.sources.some(function (s) { return s.orders === 0 && s.spend > 0; });
+        if (hasWinLoser) reason += '；同词存在零单流量，收割后务必在原活动加否定精准';
+      }
+      /* 放量：CTR/CVR不错但曝光低 */
+      else if (r.impr < 500 && ctr >= 0.5 && cvr >= 8 && r.orders >= 1 && acos <= target) {
+        cat = '放量'; pri = 'P2';
+        action = '单独建精准组小步加价测试';
+        bid = cpc ? r2(cpc * 1.1) : null;
+        reason = 'CTR ' + ctr.toFixed(2) + '% · CVR ' + cvr.toFixed(1) + '% 达标但曝光仅 ' + r.impr;
+        if (convCap > 0 && cpc > convCap) { profitMismatch = true; reason += '；CPC超上限，利润不匹配不建议放量'; }
+      }
+      /* 观察：有单但ACOS偏高，或CVR尚可花费偏大 */
+      else if (r.orders >= 1 || (r.clicks >= 5 && cvr >= 3)) {
+        cat = '观察'; pri = 'P2';
+        action = '下调出价 10%~20%，再观察一个周期';
+        bid = cpc ? r2(cpc * 0.85) : null;
+        reason = r.orders ? (r.orders + ' 单但 ACOS ' + (isFinite(acos) ? acos.toFixed(1) : '∞') + '% 高于目标') : ('CVR ' + cvr.toFixed(1) + '% 尚可但花费 $' + r.spend.toFixed(2) + ' 偏大');
+        needFront = ctr >= 0.5 && cvr < 3;
+      }
+      /* 其余零单低量：小额不值得单独操作，归观察（避免平均用力） */
+      else {
+        cat = '观察'; pri = 'P2';
+        action = '低量零单，暂不操作；累计到花费 $3 或点击 10 再否定';
+        reason = '点击 ' + r.clicks + ' 零单，花费仅 $' + r.spend.toFixed(2) + '，样本不足，优先处理高花费词';
+      }
+
+      return {
+        term: r.term, spend: r2(r.spend), clicks: Math.round(r.clicks), impr: Math.round(r.impr),
+        orders: Math.round(r.orders), sales: r2(r.sales),
+        acos: isFinite(acos) ? r2(acos) : null, acosInf: !isFinite(acos) && r.spend > 0,
+        ctr: r2(ctr), cvr: r2(cvr), cpc: r2(cpc), perConv: r2(perConv),
+        match: r.sources.map(function (s) { return s.match; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join('/'),
+        campaign: r.sources.map(function (s) { return s.campaign; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(' | '),
+        cat: cat, pri: pri, action: action, negType: negType, bid: bid, reason: reason,
+        needFront: needFront, profitMismatch: profitMismatch, sources: r.sources
+      };
+    });
+
+    /* 按优先级 P0→P1→P2，再按花费降序 */
+    var prOrder = { P0: 0, P1: 1, P2: 2 };
+    items.sort(function (a, b) { return prOrder[a.pri] - prOrder[b.pri] || b.spend - a.spend; });
+
+    /* 否定清单：只列值得动手的（花费≥$3 或 点击≥10），小额零单不进清单 */
+    var negWorthy = function (x) { return x.cat === '否定' && (x.spend >= 3 || x.clicks >= 10); };
+    var negExact = items.filter(function (x) { return negWorthy(x) && x.negType === '否定精准'; }).map(function (x) { return x.term; });
+    var negPhrase = items.filter(function (x) { return negWorthy(x) && x.negType === '否定词组'; }).map(function (x) {
+      var t = x.term.split(/\s+/).slice(0, 2).join(' '); return t; // 词根，便于人工确认
+    });
+    var harvest = items.filter(function (x) { return x.cat === '收割'; });
+    var scale = items.filter(function (x) { return x.cat === '放量' || (x.cat === '收割' && !x.profitMismatch); });
+
+    /* 预算重分配：出血点花费的 60% 挪给赢家 */
+    var bleed = items.filter(function (x) { return x.cat === '否定' && x.orders === 0; });
+    var winners = items.filter(function (x) { return x.cat === '收割' && !x.profitMismatch; });
+    var bleedSpend = bleed.reduce(function (s, x) { return s + x.spend; }, 0);
+    var move = r2(bleedSpend * 0.6);
+    var budgetPlan = {
+      from: bleed.slice(0, 5).map(function (x) { return { term: x.term, spend: x.spend, action: '否定止损，释放 $' + x.spend.toFixed(2) }; }),
+      to: winners.slice(0, 5).map(function (x) { return { term: x.term, acos: x.acos, action: '精准组承接预算' }; }),
+      move: move, note: '从零单出血词释放约 60% 花费（$' + move.toFixed(2) + '）给达标赢家词；单组日预算不低于建议竞价10倍。'
+    };
+
+    var digest = {
+      spend: total.spend, sales: total.sales, orders: total.orders, clicks: total.clicks,
+      acos: total.acos, cvr: total.cvr, target: r2(target), targetAssumed: targetAssumed,
+      convCap: r2(convCap), adShare: adShare, price: price, margin: num(params.margin),
+      bleed: bleed.slice(0, 3).map(function (x) { return { term: x.term, spend: x.spend, clicks: x.clicks }; }),
+      winner: winners.length ? { term: winners[0].term, orders: winners[0].orders, acos: winners[0].acos } : null,
+      considered: considered.length, totalTerms: full.length, topN: topN,
+      budget: budget, period: params.period || '', market: params.market || '美国站'
+    };
+
+    var gaps = [];
+    if (targetAssumed) gaps.push('目标ACoS未填，按「毛利率×0.7」假设为 ' + r2(target) + '%，请按实际承压能力调整。');
+    if (!(price > 0) || !(margin > 0)) gaps.push('售价或毛利率未填，单次转化成本上限无法计算，相关判断只做初步。');
+    items.filter(function (x) { return x.needFront; }).slice(0, 5).forEach(function (x) {
+      gaps.push('「' + x.term + '」CTR尚可但CVR偏低，需前台验证评价数/差评痛点/价格带后再决定，勿直接否定。');
+    });
+    gaps.push('否定操作可能误伤：宽泛匹配下否定精准会挡掉完全相同的搜索词，若该词在其他精准组仍是赢家，请改在对应广告组加否定而非账户级。');
+    if (full.length > topN) gaps.push('本报告共 ' + full.length + ' 个搜索词，仅优先处理花费前 ' + topN + ' 个，长尾未逐一诊断。');
+
+    return {
+      params: params, digest: digest, items: items,
+      lists: { negExact: negExact, negPhrase: negPhrase, harvest: harvest, scale: scale },
+      budgetPlan: budgetPlan, gaps: gaps, rawRows: rows.length
+    };
+  }
+
   global.PPCEngine = {
     parseCSV: parseCSV, parseRows: parseRows, summarize: summarize,
-    diagnose: diagnose, analyzeWeek: analyzeWeek, compare: compare, weekKey: weekKey
+    diagnose: diagnose, analyzeWeek: analyzeWeek, compare: compare, weekKey: weekKey,
+    analyzeOptimize: analyzeOptimize, aggregateByTerm: aggregateByTerm, excelDate: excelDate
   };
 })(window);
 </script>
@@ -1715,6 +1902,8 @@ const CONTENT = {
     tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know',
     calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '', calcFormulaOpen: false,
     ppcRows: null, ppcName: '', ppcTarget: '30', ppcView: 'current', ppcSelected: '',
+    ppcParams: { price: '', margin: '', acos: '', budget: '', topN: '30', adShare: '0.7', market: '美国站', period: '', product: '', position: '' },
+    ppcOpt: null,
     form: {
       opsText: '', opsType: { opt: '广告', src: '看品' }, opsMinutes: '25', opsWatch: false,
       knowText: '', knowCat: '广告', knowMinutes: '25', knowRule: false,
@@ -2353,27 +2542,42 @@ const CONTENT = {
   function ppcLatest() { const d = ppcLoad(); return d.weeks.length ? d.weeks[d.weeks.length - 1] : null; }
   function ppcPrev() { const d = ppcLoad(); return d.weeks.length > 1 ? d.weeks[d.weeks.length - 2] : null; }
 
+  function fallbackCopy(ta) {
+    try { ta.select(); document.execCommand('copy'); toast('已复制 ' + ta.value.split('\n').length + ' 行'); }
+    catch (e) { toast('复制失败，请手动选中复制'); }
+  }
+  function ppcParams() {
+    var p = UI.ppcParams;
+    return {
+      price: p.price, margin: p.margin, acos: p.acos || UI.ppcTarget,
+      budget: p.budget, topN: p.topN || 30, adShare: p.adShare || 0.7,
+      market: p.market || '美国站', period: p.period, product: p.product, position: p.position
+    };
+  }
   function runPpcAnalyze() {
     if (!UI.ppcRows || !UI.ppcRows.length) { toast('先上传搜索词报告'); return; }
-    const target = Number(UI.ppcTarget);
-    if (!target || target <= 0) { toast('目标 ACOS 要填大于 0 的数字'); return; }
     try {
+      const params = ppcParams();
+      /* 优化脚本分析（利润优先） */
+      const opt = window.PPCEngine.analyzeOptimize(UI.ppcRows, params);
+      UI.ppcOpt = opt;
+      /* 周对比用的旧格式：目标 ACOS 用优化结果里的实际目标 */
+      const target = opt.digest.target > 0 ? opt.digest.target : 30;
       const a = window.PPCEngine.analyzeWeek(UI.ppcRows, target);
       const d = ppcLoad();
       const wk = window.PPCEngine.weekKey(Date.now());
-      /* 若有活跃项目，归档时绑定（可后改） */
       const bindP = sopCurrent().project;
       const entry = {
         week: wk, uploadedAt: Date.now(), reportName: UI.ppcName,
         targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount,
+        opt: opt,
         projectId: bindP ? bindP.id : undefined, projectName: bindP ? bindP.name : undefined
       };
-      /* 同一周覆盖，不同周追加 */
       const at = d.weeks.findIndex(function (w) { return w.week === wk; });
       if (at >= 0) d.weeks[at] = entry; else d.weeks.push(entry);
       ppcSave(d);
       UI.ppcRows = null; UI.ppcName = '';
-      toast('分析完成：' + a.summary.terms + ' 个搜索词，' + a.advice.length + ' 条建议');
+      toast('分析完成：' + opt.items.length + ' 词，' + (opt.digest.targetAssumed ? '目标ACOS按毛利率×0.7假设' : '目标ACOS ' + target + '%'));
       renderAll();
     } catch (e) { toast('分析失败：' + e.message); }
   }
@@ -2383,12 +2587,22 @@ const CONTENT = {
     const view = UI.ppcView === 'history' ? (store.weeks[UI.ppcSelected] || cur) : cur;
     let h = '<div class="page-head"><h1>广告</h1><p>搜索词报告分析 · 每周二上传，自动与上周对比给调整意见</p></div>';
 
-    /* 上传区 */
+    /* 上传区 + 业务参数 */
+    const pm = UI.ppcParams;
     h += '<div class="card"><div class="card-title">本周搜索词报告 <span class="tag green">本地解析</span></div>' +
-      '<div class="card-sub">从 Amazon Ads → 搜索词报告导出（CSV 或 XLSX）。字段含客户搜索词/匹配类型/展示/点击/花费/销售额/订单即可。文件不上传。</div>' +
+      '<div class="card-sub">从 Amazon Ads → 搜索词报告导出（CSV 或 XLSX）。文件不上传。填好业务参数后分析，输出可直接粘贴后台的动作清单。</div>' +
       '<div class="form-grid" style="margin-top:10px">' +
       '<div class="field"><label>报告文件</label><button class="btn" data-act="ppc-pick">' + esc(UI.ppcName || '选择报告') + '</button></div>' +
-      '<div class="field"><label>目标 ACOS %</label><input type="number" min="1" step="1" data-ppc="target" value="' + esc(UI.ppcTarget) + '"></div>' +
+      '<div class="field"><label>售价 $</label><input type="number" step="0.01" data-param="price" placeholder="29.99" value="' + esc(pm.price) + '"></div>' +
+      '<div class="field"><label>毛利率 %（未扣广告）</label><input type="number" step="1" data-param="margin" placeholder="55" value="' + esc(pm.margin) + '"></div>' +
+      '<div class="field"><label>目标 ACOS %（可空）</label><input type="number" step="1" data-param="acos" placeholder="留空=毛利率×0.7" value="' + esc(pm.acos) + '"></div>' +
+      '<div class="field"><label>日预算 $</label><input type="number" step="1" data-param="budget" placeholder="可空" value="' + esc(pm.budget) + '"></div>' +
+      '<div class="field"><label>处理花费前 N 词</label><input type="number" step="1" data-param="topN" value="' + esc(pm.topN) + '"></div>' +
+      '<div class="field"><label>广告占毛利比例</label><input type="number" step="0.1" data-param="adShare" value="' + esc(pm.adShare) + '"><span class="sop-hint">默认0.7=最多拿毛利70%做广告</span></div>' +
+      '<div class="field"><label>产品 / 卖点</label><input type="text" data-param="product" placeholder="如：宠物漏食球" value="' + esc(pm.product) + '"></div>' +
+      '<div class="field"><label>站点</label><input type="text" data-param="market" value="' + esc(pm.market) + '"></div>' +
+      '<div class="field"><label>报告周期</label><input type="text" data-param="period" placeholder="如：11/11-11/17" value="' + esc(pm.period) + '"></div>' +
+      '<div class="field"><label>竞争定位</label><input type="text" data-param="position" placeholder="如：差异化款" value="' + esc(pm.position) + '"></div>' +
       '</div><div class="pill-row"><button class="btn btn-primary" data-act="ppc-run">分析并归档本周</button>' +
       '<span class="spacer"></span><button class="btn btn-sm" data-act="ppc-view-cur">本周</button>' +
       '<button class="btn btn-sm" data-act="ppc-view-hist">历史周</button></div>' +
@@ -2441,33 +2655,89 @@ const CONTENT = {
       h += '</div>';
     }
 
-    /* 调整清单 */
-    h += '<div class="card"><div class="card-title">调整清单 <small>按优先级 · 单次改动不超过词数 30%</small></div>';
-    if (!view.advice || !view.advice.length) h += '<div class="empty">本周没有词触发优化阈值，保持观察。</div>';
-    else {
-      h += '<div class="list">';
-      view.advice.forEach(function (a, i) {
-        const color = a.level === 'bad' ? 'gray' : a.level === 'good' ? 'green' : 'blue';
-        h += '<div class="row"><span class="tag ' + color + '">' + (i + 1) + '</span>' +
-          '<span class="row-text" title="' + esc(a.term) + '">' + esc(a.term) +
-          '<br><span class="mins">' + esc(a.reason) + ' · ' + esc(a.diagDetail) + '</span></span>' +
-          '<span class="tag ' + color + '">' + esc(a.action) + '</span></div>';
-      });
-      h += '</div>';
-      h += '<div class="hint">规则：出单≥2且ACOS达标→升精准；点击≥15零单→Exact否定；点击≥30且ACOS超目标2倍→降竞价30%；高曝光低CTR→收紧；CTR好CVR差→查Listing；低ACOS低曝光→加注。每次只改一个变量，14 天后复盘。</div>';
+    /* ===== 优化脚本输出（利润优先） ===== */
+    const opt = view.opt || UI.ppcOpt;
+    if (!opt) {
+      h += '<div class="card"><div class="empty">旧格式归档，无优化脚本结果。重新上传报告即可生成。</div></div>';
+      return h;
     }
-    h += '</div>';
+    const dg = opt.digest;
 
-    /* 全部搜索词 */
-    h += '<div class="card"><div class="card-title">全部搜索词 <small>' + view.rows.length + ' 个</small></div>' +
-      '<div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>搜索词</th><th>点击</th><th>花费$</th><th>销售$</th><th>单</th><th>ACOS</th><th>动作</th></tr></thead><tbody>';
-    view.rows.forEach(function (r) {
-      h += '<tr><td class="mono" title="' + esc(r.term) + '">' + esc(r.term.slice(0, 22)) + '</td>' +
-        '<td>' + r.clicks + '</td><td>' + fmtMoney(r.spend) + '</td><td>' + fmtMoney(r.sales) + '</td>' +
-        '<td>' + r.orders + '</td><td>' + (r.acos === null ? '—' : r.acos + '%') + '</td>' +
-        '<td>' + esc(r.action) + '</td></tr>';
+    /* 一、诊断摘要 */
+    h += '<div class="section-title">一、诊断摘要 <small>' + esc(dg.period || dg.market) + ' · 目标ACOS ' + dg.target + '%' + (dg.targetAssumed ? '（假设：毛利率×0.7）' : '') + '</small></div>';
+    h += metrics([
+      { label: '总花费', value: fmtMoney(dg.spend), small: dg.clicks + ' 点击' },
+      { label: '销售额', value: fmtMoney(dg.sales), small: dg.orders + ' 单' },
+      { label: '整体 ACOS', value: dg.acos === null ? '—' : dg.acos + '%', small: '目标 ' + dg.target + '%' },
+      { label: '整体 CVR', value: dg.cvr + '%', small: '上限$' + dg.convCap + '/单' }
+    ]);
+    h += '<div class="card"><div class="list">' +
+      '<div class="row"><span class="dot red"></span><span class="row-text"><b>最大出血点</b><br><span class="mins">' +
+        (dg.bleed.length ? dg.bleed.map(function (b) { return esc(b.term) + ' $' + b.spend + '/' + b.clicks + '点击零单'; }).join('；') : '无明显大额零单出血点') + '</span></span></div>' +
+      '<div class="row"><span class="dot green"></span><span class="row-text"><b>最值得收割的赢家</b><br><span class="mins">' +
+        (dg.winner ? esc(dg.winner.term) + ' · ' + dg.winner.orders + '单 · ACOS ' + dg.winner.acos + '%' : '暂无达标赢家词') + '</span></span></div>' +
+      '<div class="row"><span class="dot blue"></span><span class="row-text"><b>预算迁移</b><br><span class="mins">从零单出血词挪 $' + opt.budgetPlan.move + ' 给达标精准词；优先处理花费前 ' + dg.considered + ' 词（共 ' + dg.totalTerms + ' 词）</span></span></div>' +
+      '</div></div>';
+
+    /* 二、优先行动清单 */
+    h += '<div class="section-title">二、优先行动清单 <small>P0立即止损 · P1本周收割/调价 · P2观察/测试</small></div>';
+    h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr>' +
+      '<th>优先级</th><th>搜索词</th><th>花费</th><th>点击</th><th>单</th><th>ACOS</th><th>CVR</th><th>分类</th><th>建议动作</th><th>理由</th><th>验证</th>' +
+      '</tr></thead><tbody>';
+    opt.items.forEach(function (x) {
+      const pcolor = x.pri === 'P0' ? 'red' : x.pri === 'P1' ? 'green' : 'gray';
+      const ccolor = x.cat === '否定' ? 'gray' : x.cat === '收割' ? 'green' : x.cat === '放量' ? 'blue' : '';
+      const flags = (x.needFront ? '需前台验证 ' : '') + (x.profitMismatch ? '⚠利润不匹配' : '');
+      h += '<tr><td><span class="tag ' + pcolor + '">' + x.pri + '</span></td>' +
+        '<td class="mono" title="' + esc(x.term) + '">' + esc(x.term.slice(0, 26)) + '</td>' +
+        '<td>' + fmtMoney(x.spend) + '</td><td>' + x.clicks + '</td><td>' + x.orders + '</td>' +
+        '<td>' + (x.acosInf ? '零销售' : (x.acos === null ? '—' : x.acos + '%')) + '</td>' +
+        '<td>' + x.cvr + '%</td><td><span class="tag ' + ccolor + '">' + x.cat + '</span></td>' +
+        '<td>' + esc(x.action) + (x.bid ? '<br><span class="mins">建议出价 $' + x.bid + '</span>' : '') + '</td>' +
+        '<td class="mins">' + esc(x.reason) + '</td>' +
+        '<td class="mins">' + esc(flags) + '</td></tr>';
     });
     h += '</tbody></table></div></div>';
+
+    /* 三、可粘贴后台清单 */
+    h += '<div class="section-title">三、可直接粘贴后台的清单</div>';
+    function clipCard(title, key, lines, note) {
+      const txt = lines.join('\n');
+      return '<div class="card"><div class="card-title">' + title + ' <small>' + lines.length + ' 个</small></div>' +
+        (note ? '<div class="hint">' + esc(note) + '</div>' : '') +
+        '<textarea readonly rows="' + Math.max(3, Math.min(10, lines.length)) + '" data-clip="' + key + '" style="width:100%;font-family:monospace;font-size:11px">' + esc(txt) + '</textarea>' +
+        '<div class="pill-row"><button class="btn btn-sm" data-act="ppc-copy" data-key="' + key + '">复制</button></div></div>';
+    }
+    h += clipCard('1. 否定精准关键词', 'negExact', opt.lists.negExact, '每行一个，粘贴到广告活动/广告组的否定精准。单干卖家优先在对应组加，别一律账户级。');
+    h += clipCard('2. 否定词组', 'negPhrase', opt.lists.negPhrase, '每行一个词根，用于挡掉一整类无关搜索意图；加前确认不会误伤正常词。');
+    h += clipCard('3. 收割到精准匹配（附出价）', 'harvest', opt.lists.harvest.map(function (x) { return x.term + '  $' + x.bid; }), '移入独立精准组，同时在原活动加否定精准避免内部竞争。出价为建议起始值，按实际调整。');
+    h += clipCard('4. 加价/单独建组测试', 'scale', opt.lists.scale.map(function (x) { return x.term + '  $' + x.bid; }), '小步加价（≤10%），单独建精准组，别直接抬大组竞价。');
+
+    /* 四、预算重分配 */
+    const bp = opt.budgetPlan;
+    h += '<div class="section-title">四、预算重分配建议</div>';
+    h += '<div class="card"><div class="list">' +
+      '<div class="row"><span class="dot red"></span><span class="row-text"><b>挪出</b><br><span class="mins">' +
+        (bp.from.length ? bp.from.map(function (x) { return esc(x.term) + '（$' + x.spend.toFixed(2) + '）'; }).join('；') : '无') + '</span></span></div>' +
+      '<div class="row"><span class="dot green"></span><span class="row-text"><b>挪入</b><br><span class="mins">' +
+        (bp.to.length ? bp.to.map(function (x) { return esc(x.term) + '（ACOS ' + x.acos + '%）'; }).join('；') : '暂无达标赢家') + '</span></span></div>' +
+      '</div><div class="hint">' + esc(bp.note) + '</div></div>';
+
+    /* 五、下周测试计划 */
+    h += '<div class="section-title">五、下周测试计划</div>';
+    h += '<div class="card"><div class="list">' +
+      '<div class="row"><span class="tag red">P0</span><span class="row-text">否定大额零单出血词<br><span class="mins">判断标准：否定后 7 天，看总花费下降而订单不掉、整体ACOS回落</span></span></div>' +
+      '<div class="row"><span class="tag green">P1</span><span class="row-text">赢家词移入独立精准组<br><span class="mins">判断标准：新组 ACOS ≤ 目标 ' + dg.target + '% 且 CVR 不明显下滑</span></span></div>' +
+      '<div class="row"><span class="tag green">P1</span><span class="row-text">观察词统一下调出价 10%~20%<br><span class="mins">判断标准：14 天后看 ACOS 是否回落，单量掉超过 30% 则回调</span></span></div>' +
+      '<div class="row"><span class="tag blue">P2</span><span class="row-text">放量词单独建组小步加价 ≤10%<br><span class="mins">判断标准：曝光提升且 ACOS 仍 ≤ 目标，否则停止</span></span></div>' +
+      '<div class="row"><span class="tag gray">P2</span><span class="row-text">需前台验证的词先看评价/差评/价格带再决定<br><span class="mins">判断标准：验证后确认不是详情页问题，才执行否定或降竞价</span></span></div>' +
+      '</div><div class="hint">单次改动别超过词数 30%，一次只改一个变量（竞价/匹配/否定），14 天后复盘。</div></div>';
+
+    /* 六、风险与数据缺口 */
+    h += '<div class="section-title">六、风险与数据缺口</div>';
+    h += '<div class="card"><div class="list">' +
+      opt.gaps.map(function (g) { return '<div class="row"><span class="dot gray"></span><span class="row-text">' + esc(g) + '</span></div>'; }).join('') +
+      '</div></div>';
     return h;
   }
   function fmtVal(n, key) { return (key === '花费' || key === '销售额') ? fmtMoney(n) : (key === 'ACOS' ? n + '%' : String(n)); }
@@ -3287,6 +3557,15 @@ const CONTENT = {
       }
       case 'ppc-pick': document.getElementById('ppcFile').click(); break;
       case 'ppc-run': runPpcAnalyze(); break;
+      case 'ppc-copy': {
+        const ta = view.querySelector('[data-clip="' + el.dataset.key + '"]');
+        if (!ta) break;
+        const txt = ta.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(function () { toast('已复制 ' + txt.split('\n').length + ' 行'); }).catch(function () { fallbackCopy(ta); });
+        } else fallbackCopy(ta);
+        break;
+      }
       case 'ppc-view-cur': UI.ppcView = 'current'; renderAll(); break;
       case 'ppc-view-hist': UI.ppcView = 'history'; UI.ppcSelected = String(Math.max(0, ppcLoad().weeks.length - 1)); renderAll(); break;
       case 'ppc-select': UI.ppcSelected = el.dataset.i; renderAll(); break;
@@ -3356,6 +3635,7 @@ const CONTENT = {
     if (e.target.dataset.model) UI.form[e.target.dataset.model] = e.target.value;
     if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
     if (e.target.dataset.ppc === 'target') UI.ppcTarget = e.target.value;
+    if (e.target.dataset.param) UI.ppcParams[e.target.dataset.param] = e.target.value;
     sopWriteField(e.target);
   });
   view.addEventListener('change', function (e) {
@@ -3374,6 +3654,7 @@ const CONTENT = {
       }, 600);
     }
     if (t.dataset.ppc === 'target') UI.ppcTarget = t.value;
+    if (t.dataset.param) UI.ppcParams[t.dataset.param] = t.value;
     if (t.id === 'importFile') importJSON(t.files && t.files[0]);
     if (t.id === 'wbImportFile') {
       const file = t.files && t.files[0];
