@@ -2989,10 +2989,13 @@ const CONTENT = {
     const target = opt.digest.target > 0 ? opt.digest.target : 30;
     const a = window.PPCEngine.analyzeWeek(rows, target);
     const d = ppcLoad(), bindP = sopCurrent().project;
+    /* 报告实际覆盖的日期范围（自动从报告读取，不依赖手填） */
+    var serials = rows.map(function (r) { return r.startDate; }).filter(function (s) { return s && s >= 20000; }).sort(function (x, y) { return x - y; });
+    var dateRange = serials.length ? (window.PPCEngine.excelDate(serials[0]) + ' ~ ' + window.PPCEngine.excelDate(serials[serials.length - 1])) : '';
     const entry = {
       week: wk, uploadedAt: Date.now(), reportName: reportName,
       targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount,
-      opt: opt, period: params.period || '',
+      opt: opt, period: params.period || dateRange, dateRange: dateRange,
       projectId: bindP ? bindP.id : undefined, projectName: bindP ? bindP.name : undefined
     };
     const at = d.weeks.findIndex(function (w) { return w.week === wk; });
@@ -3019,11 +3022,11 @@ const CONTENT = {
   function renderAds() {
     const store = ppcLoad(), cur = ppcLatest(), prev = ppcPrev();
     const view = UI.ppcView === 'history' ? (store.weeks[UI.ppcSelected] || cur) : cur;
-    let h = '<div class="page-head"><h1>广告</h1><p>搜索词报告分析 · 每周二上传，自动与上周对比给调整意见</p></div>';
+    let h = '<div class="page-head"><h1>广告</h1><p>搜索词报告分析 · 按报告实际日期归档，自动与上一期对比给调整意见</p></div>';
 
     /* 上传区 + 业务参数 */
     const pm = UI.ppcParams;
-    h += '<div class="card"><div class="card-title">本周搜索词报告 <span class="tag green">本地解析</span></div>' +
+    h += '<div class="card"><div class="card-title">本期搜索词报告 <span class="tag green">本地解析</span></div>' +
       '<div class="card-sub">从 Amazon Ads → 搜索词报告导出（CSV 或 XLSX）。文件不上传。填好业务参数后分析，输出可直接粘贴后台的动作清单。</div>' +
       '<div class="form-grid" style="margin-top:10px">' +
       '<div class="field"><label>报告文件</label><button class="btn" data-act="ppc-pick">' + esc(UI.ppcName || '选择报告') + '</button></div>' +
@@ -3037,8 +3040,8 @@ const CONTENT = {
       '<div class="field"><label>站点</label><input type="text" data-param="market" value="' + esc(pm.market) + '"></div>' +
       '<div class="field"><label>报告周期</label><input type="text" data-param="period" placeholder="如：11/11-11/17" value="' + esc(pm.period) + '"></div>' +
       '<div class="field"><label>竞争定位</label><input type="text" data-param="position" placeholder="如：差异化款" value="' + esc(pm.position) + '"></div>' +
-      '</div><div class="pill-row"><button class="btn btn-primary" data-act="ppc-run">分析并归档本周</button>' +
-      '<span class="spacer"></span><button class="btn btn-sm" data-act="ppc-view-cur">本周</button>' +
+      '</div><div class="pill-row"><button class="btn btn-primary" data-act="ppc-run">分析并归档</button>' +
+      '<span class="spacer"></span><button class="btn btn-sm" data-act="ppc-view-cur">最新一期</button>' +
       '<button class="btn btn-sm" data-act="ppc-view-hist">历史周</button></div>' +
       '<input type="file" id="ppcFile" accept=".csv,.xlsx,text/csv" style="display:none"></div>';
 
@@ -3060,19 +3063,19 @@ const CONTENT = {
     if (UI.ppcView === 'history' && store.weeks.length) {
       h += '<div class="card"><div class="card-title">历史周</div><div class="pill-row">';
       store.weeks.forEach(function (w, i) {
-        h += '<button class="btn btn-sm' + (i === Number(UI.ppcSelected) ? ' primary' : '') + '" data-act="ppc-select" data-i="' + i + '">' + esc(w.week) + '</button>';
+        h += '<button class="btn btn-sm' + (i === Number(UI.ppcSelected) ? ' primary' : '') + '" data-act="ppc-select" data-i="' + i + '" title="' + esc(w.dateRange || '') + '">' + esc(w.week) + '</button>';
       });
       h += '</div></div>';
     }
 
     if (!view) {
-      h += '<div class="card"><div class="empty">还没有分析报告。上传本周搜索词报告即可开始；每周二上传一次，系统自动留档并与上周对比。</div></div>';
+      h += '<div class="card"><div class="empty">还没有分析报告。上传一期搜索词报告即可开始；工具按报告里的日期自动归周，并与上一期对比。</div></div>';
       return h;
     }
 
     /* 汇总 */
     const s = view.summary;
-    h += '<div class="section-title">' + esc(view.week) + ' 汇总 <small>目标 ACOS ' + esc(view.targetAcos) + '%' + (view.projectName ? ' · 项目 ' + esc(view.projectName) : '') + (view.reportName ? ' · ' + esc(view.reportName) : '') + '</small></div>';
+    h += '<div class="section-title">' + esc(view.week) + ' 报告 <small>' + (view.dateRange ? '数据 ' + esc(view.dateRange) + ' · ' : '') + '目标 ACOS ' + esc(view.targetAcos) + '%' + (view.projectName ? ' · 项目 ' + esc(view.projectName) : '') + (view.reportName ? ' · ' + esc(view.reportName) : '') + '</small></div>';
     h += metrics([
       { label: '花费', value: fmtMoney(s.spend), small: s.clicks + ' 次点击' },
       { label: '销售额', value: fmtMoney(s.sales), small: s.orders + ' 单' },
@@ -3083,7 +3086,7 @@ const CONTENT = {
     /* 周对比 */
     if (UI.ppcView !== 'history') {
       const cmp = window.PPCEngine.compare(cur, prev);
-      h += '<div class="card"><div class="card-title">周对比 <small>' + (cmp.first ? '首份报告' : '本周 vs 上周') + '</small></div>';
+      h += '<div class="card"><div class="card-title">期对比 <small>' + (cmp.first ? '首份报告' : '最新一期 vs 上一期') + '</small></div>';
       if (cmp.first) h += '<div class="hint">' + esc(cmp.note) + '</div>';
       else {
         h += '<div class="list">';
