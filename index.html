@@ -818,6 +818,16 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     var d = new Date(Math.round((serial - 25569) * 86400000));
     return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
   }
+  /* 从报告里的开始日期推断报告所属 ISO 周（用于历史周归档，而非用上传当天）
+     取所有有效 startDate 的中位数，避免个别跨周行带偏。 */
+  function inferWeek(rows) {
+    var serials = (rows || []).map(function (r) { return r.startDate; })
+      .filter(function (s) { return s && s >= 20000; }).sort(function (a, b) { return a - b; });
+    if (!serials.length) return null;
+    var mid = serials[Math.floor(serials.length / 2)];
+    var ts = Math.round((mid - 25569) * 86400000);
+    return { week: weekKey(ts), date: excelDate(mid), from: 'report' };
+  }
 
   /* 按搜索词聚合：同一词多行（不同活动/匹配）合并，保留来源明细 */
   function aggregateByTerm(rows) {
@@ -985,7 +995,7 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
   global.PPCEngine = {
     parseCSV: parseCSV, parseRows: parseRows, summarize: summarize,
     diagnose: diagnose, analyzeWeek: analyzeWeek, compare: compare, weekKey: weekKey,
-    analyzeOptimize: analyzeOptimize, aggregateByTerm: aggregateByTerm, excelDate: excelDate
+    analyzeOptimize: analyzeOptimize, aggregateByTerm: aggregateByTerm, excelDate: excelDate, inferWeek: inferWeek
   };
 })(window);
 </script>
@@ -2321,7 +2331,7 @@ const CONTENT = {
     calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '', calcFormulaOpen: false,
     ppcRows: null, ppcName: '', ppcTarget: '30', ppcView: 'current', ppcSelected: '',
     ppcParams: { price: '', margin: '', acos: '', budget: '', topN: '30', adShare: '0.7', market: '美国站', period: '', product: '', position: '' },
-    ppcOpt: null,
+    ppcOpt: null, ppcImportWeek: '', ppcImportResult: null,
     form: {
       opsText: '', opsType: { opt: '广告', src: '看品' }, opsMinutes: '25', opsWatch: false,
       knowText: '', knowCat: '广告', knowMinutes: '25', knowRule: false,
@@ -2972,30 +2982,36 @@ const CONTENT = {
       market: p.market || '美国站', period: p.period, product: p.product, position: p.position
     };
   }
+  /* 归档一份报告到指定周（批量导入与单文件分析共用） */
+  function archiveReport(rows, params, wk, reportName) {
+    const opt = window.PPCEngine.analyzeOptimize(rows, params);
+    UI.ppcOpt = opt;
+    const target = opt.digest.target > 0 ? opt.digest.target : 30;
+    const a = window.PPCEngine.analyzeWeek(rows, target);
+    const d = ppcLoad(), bindP = sopCurrent().project;
+    const entry = {
+      week: wk, uploadedAt: Date.now(), reportName: reportName,
+      targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount,
+      opt: opt, period: params.period || '',
+      projectId: bindP ? bindP.id : undefined, projectName: bindP ? bindP.name : undefined
+    };
+    const at = d.weeks.findIndex(function (w) { return w.week === wk; });
+    const replaced = at >= 0;
+    if (replaced) d.weeks[at] = entry; else d.weeks.push(entry);
+    d.weeks.sort(function (x, y) { return String(x.week).localeCompare(String(y.week)); });
+    ppcSave(d);
+    return { week: wk, replaced: replaced, opt: opt, target: target };
+  }
   function runPpcAnalyze() {
     if (!UI.ppcRows || !UI.ppcRows.length) { toast('先上传搜索词报告'); return; }
     try {
       const params = ppcParams();
-      /* 优化脚本分析（利润优先） */
-      const opt = window.PPCEngine.analyzeOptimize(UI.ppcRows, params);
-      UI.ppcOpt = opt;
-      /* 周对比用的旧格式：目标 ACOS 用优化结果里的实际目标 */
-      const target = opt.digest.target > 0 ? opt.digest.target : 30;
-      const a = window.PPCEngine.analyzeWeek(UI.ppcRows, target);
-      const d = ppcLoad();
-      const wk = window.PPCEngine.weekKey(Date.now());
-      const bindP = sopCurrent().project;
-      const entry = {
-        week: wk, uploadedAt: Date.now(), reportName: UI.ppcName,
-        targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount,
-        opt: opt,
-        projectId: bindP ? bindP.id : undefined, projectName: bindP ? bindP.name : undefined
-      };
-      const at = d.weeks.findIndex(function (w) { return w.week === wk; });
-      if (at >= 0) d.weeks[at] = entry; else d.weeks.push(entry);
-      ppcSave(d);
+      var inf = window.PPCEngine.inferWeek(UI.ppcRows);
+      var wk = UI.ppcImportWeek || (inf && inf.week) || window.PPCEngine.weekKey(Date.now());
+      var res = archiveReport(UI.ppcRows, params, wk, UI.ppcName);
       UI.ppcRows = null; UI.ppcName = '';
-      toast('分析完成：' + opt.items.length + ' 词，' + (opt.digest.targetAssumed ? '目标ACOS按毛利率×0.7假设' : '目标ACOS ' + target + '%'));
+      toast('已归档到 ' + res.week + '：' + res.opt.items.length + ' 词' +
+        (res.opt.digest.targetAssumed ? '（目标ACOS按毛利率×0.7假设）' : '') + (res.replaced ? ' · 覆盖了原周数据' : ''));
       renderAll();
     } catch (e) { toast('分析失败：' + e.message); }
   }
@@ -3025,6 +3041,20 @@ const CONTENT = {
       '<span class="spacer"></span><button class="btn btn-sm" data-act="ppc-view-cur">本周</button>' +
       '<button class="btn btn-sm" data-act="ppc-view-hist">历史周</button></div>' +
       '<input type="file" id="ppcFile" accept=".csv,.xlsx,text/csv" style="display:none"></div>';
+
+    /* 历史周批量导入 */
+    h += '<div class="card"><div class="card-title">导入历史周报告 <span class="tag gray">可一次选多份</span></div>' +
+      '<div class="card-sub">把手上攒的旧搜索词报告（CSV/XLSX）一次选中导入。工具按报告里的「开始日期」自动归到对应周；报告没日期列时，在下面填一个归属周（如 2026-W45）。同一周重复导入会覆盖。</div>' +
+      '<div class="form-grid" style="margin-top:10px">' +
+      '<div class="field"><label>归属周（可空=自动识别）</label><input type="text" data-ppc-import="week" placeholder="如 2026-W45" value="' + esc(UI.ppcImportWeek || '') + '"></div>' +
+      '</div><div class="pill-row"><button class="btn btn-sm" data-act="ppc-import-pick">选择历史报告（可多选）</button>' +
+      '<span class="mins">已归档 ' + store.weeks.length + ' 周</span></div>' +
+      (UI.ppcImportResult ? '<div class="card-sub" style="margin-top:10px"><b>导入结果</b></div><div class="list">' +
+        UI.ppcImportResult.map(function (r) {
+          return '<div class="row"><span class="dot ' + (r.ok ? 'green' : 'red') + '"></span><span class="row-text term-row">' +
+            esc(r.name) + ' → ' + esc(r.msg) + '</span></div>';
+        }).join('') + '</div>' : '') +
+      '<input type="file" id="ppcImportFile" accept=".csv,.xlsx,text/csv" multiple style="display:none"></div>';
 
     /* 历史周切换 */
     if (UI.ppcView === 'history' && store.weeks.length) {
@@ -4059,6 +4089,7 @@ const CONTENT = {
         break;
       }
       case 'ppc-pick': document.getElementById('ppcFile').click(); break;
+      case 'ppc-import-pick': document.getElementById('ppcImportFile').click(); break;
       case 'ppc-run': runPpcAnalyze(); break;
       case 'ppc-copy': {
         const ta = view.querySelector('[data-clip="' + el.dataset.key + '"]');
@@ -4139,6 +4170,7 @@ const CONTENT = {
     if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
     if (e.target.dataset.ppc === 'target') UI.ppcTarget = e.target.value;
     if (e.target.dataset.param) UI.ppcParams[e.target.dataset.param] = e.target.value;
+    if (e.target.dataset.ppcImport === 'week') UI.ppcImportWeek = e.target.value;
     /* 竞品粘贴文本：只存不渲染，避免丢焦点 */
     if (e.target.dataset.comp === 'input') {
       try {
@@ -4222,6 +4254,41 @@ const CONTENT = {
       };
       if (isXlsx) r.readAsArrayBuffer(file); else r.readAsText(file, 'UTF-8');
       t.value = '';
+    }
+    if (t.id === 'ppcImportFile') {
+      var files = Array.prototype.slice.call(t.files || []);
+      t.value = '';
+      if (!files.length) return;
+      var params = ppcParams(), forcedWeek = String(UI.ppcImportWeek || '').trim();
+      var results = [], pending = files.length;
+      UI.ppcImportResult = [{ name: '正在导入 ' + files.length + ' 份…', ok: true, msg: '' }];
+      renderAll();
+      files.forEach(function (file) {
+        var isXlsx = /\.xlsx$/i.test(file.name);
+        var rd = new FileReader();
+        rd.onload = function () {
+          try {
+            var matrix = isXlsx ? window.ProfitEngine.parseXlsxRows(rd.result) : window.PPCEngine.parseCSV(String(rd.result || ''));
+            var rows = window.PPCEngine.parseRows(matrix);
+            var inf = window.PPCEngine.inferWeek(rows);
+            var wk = forcedWeek || (inf && inf.week) || window.PPCEngine.weekKey(Date.now());
+            var res = archiveReport(rows, params, wk, file.name);
+            results.push({ name: file.name, ok: true, msg: wk + ' · ' + rows.length + '词' + (res.replaced ? ' · 覆盖' : '') });
+          } catch (err) { results.push({ name: file.name, ok: false, msg: '失败：' + err.message }); }
+          if (--pending === 0) {
+            results.sort(function (a, b) { return a.name.localeCompare(b.name); });
+            UI.ppcImportResult = results;
+            var okN = results.filter(function (r) { return r.ok; }).length;
+            toast('历史周导入完成：' + okN + '/' + files.length + ' 份成功');
+            renderAll();
+          }
+        };
+        rd.onerror = function () {
+          results.push({ name: file.name, ok: false, msg: '读取失败' });
+          if (--pending === 0) { UI.ppcImportResult = results; renderAll(); }
+        };
+        if (isXlsx) rd.readAsArrayBuffer(file); else rd.readAsText(file, 'UTF-8');
+      });
     }
   });
   document.getElementById('tabs').addEventListener('click', function (e) {
