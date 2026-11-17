@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="亚马逊工作台">
-<meta name="description" content="亚马逊单干卖家工作台：选品/Listing/广告/利润核算 + 经营/数据/学习/周报反馈，数据只存在本机。">
+<meta name="description" content="亚马逊单干卖家工作台：新品推广 SOP 全流程（市场调研/类目细分/模拟预估/链接准备/推广计划）+ 广告分析 + 利润核算 + 经营反馈，数据只存在本机。">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
@@ -167,7 +167,47 @@ button:disabled{cursor:default;opacity:.6}
 .modsum{font-size:12px;color:var(--text-2);line-height:1.6}
 .modmeta{font-size:11px;color:var(--text-3)}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.sop-projects{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.sop-proj{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0.5px solid var(--line);background:var(--surface);border-radius:var(--r-sm);padding:8px 12px;text-align:left;color:var(--text)}
+.sop-proj.on{border-color:var(--blue);background:var(--blue-soft)}
+.sop-proj-name{font-size:13px;font-weight:500}
+.sop-proj-meta{font-size:11px;color:var(--text-3)}
+.sop-new{margin-bottom:12px}
+.sop-stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.sop-stage{display:flex;flex-direction:column;align-items:center;gap:3px;border:0.5px solid var(--line);background:var(--surface);border-radius:var(--r-sm);padding:9px 4px;color:var(--text-2);position:relative}
+.sop-stage.on{box-shadow:inset 0 0 0 1.5px currentColor}
+.sop-stage.locked{opacity:.55}
+.sop-stage-idx{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#fff}
+.sop-stage.red .sop-stage-idx{background:#C0392B}.sop-stage.orange .sop-stage-idx{background:#BA7517}
+.sop-stage.green .sop-stage-idx{background:var(--green)}.sop-stage.blue .sop-stage-idx{background:var(--blue)}
+.sop-stage.purple .sop-stage-idx{background:#7F77DD}
+.sop-stage.red.on{color:#C0392B}.sop-stage.orange.on{color:#BA7517}.sop-stage.green.on{color:var(--green)}
+.sop-stage.blue.on{color:var(--blue)}.sop-stage.purple.on{color:#7F77DD}
+.sop-stage-l{font-size:11px;color:var(--text);white-space:nowrap}
+.sop-stage-pct{font-size:11px;color:var(--text-3)}
+.sop-meta{font-size:12px;color:var(--text-2);margin-bottom:8px}
+.sop-checks{display:flex;flex-direction:column;gap:2px;margin:6px 0}
+.sop-check{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer}
+.sop-check:hover{background:var(--neutral)}
+.sop-check.done{color:var(--text-3);text-decoration:line-through}
+.sop-check input{width:15px;height:15px;flex:none;accent-color:var(--green)}
+.sop-fields{margin:8px 0}
+.sop-hint{font-size:11px;color:var(--text-3)}
+.sop-table input{width:100%;border:0.5px solid var(--line);border-radius:5px;padding:4px 6px;background:var(--surface);color:var(--text);font-size:12px}
+.sop-derived{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:10px}
+.sop-der{display:flex;flex-direction:column;gap:2px;background:var(--neutral);border-radius:var(--r-sm);padding:9px 11px}
+.sop-der span{font-size:11px;color:var(--text-3)}
+.sop-der b{font-size:14px;font-weight:500;color:var(--text)}
+.sop-der.neg b{color:#C0392B}.sop-der.na b{color:var(--text-3)}
+.sop-stage-dot{width:12px;height:12px;border-radius:4px;flex:none}
+.sop-stage-dot.red{background:#C0392B}.sop-stage-dot.orange{background:#BA7517}
+.sop-stage-dot.green{background:var(--green)}.sop-stage-dot.blue{background:var(--blue)}
+.sop-stage-dot.purple{background:#7F77DD}
 @media (max-width:760px){
+  .sop-stages{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+  .sop-stage{padding:7px 2px}
+  .sop-stage-l{font-size:10px}
+  .sop-derived{grid-template-columns:repeat(2,minmax(0,1fr))}
   .shell{padding:0 14px 32px}
   .topbar{gap:10px;padding:12px 0 10px;margin-bottom:16px}
   .brand-sub,.topbar-right{display:none}
@@ -754,6 +794,563 @@ button:disabled{cursor:default;opacity:.6}
   };
 })(window);
 </script>
+<script>/* SOP schema：新品推广全链路五阶段（君友会 SOP）
+   section 类型：checklist(可勾清单) / fields(录入) / table(多行表) / notes(备注) / derived(自动算展示)
+   每条 check/field/column 的 k 是存储键，l 是显示标签。 */
+(function (global) {
+  "use strict";
+
+  var STAGES = [
+    { k: 'research', l: '市场调研', color: 'red', hint: '先看清市场，再决定要不要做' },
+    { k: 'segment', l: '类目细分', color: 'orange', hint: '拆竞品、定价格、搭关键词库' },
+    { k: 'simulate', l: '模拟预估', color: 'green', hint: '从价格一路算到阶段盈亏' },
+    { k: 'prepare', l: '链接准备', color: 'blue', hint: 'Listing、素材、认证、流量入口' },
+    { k: 'promote', l: '推广计划', color: 'purple', hint: '广告结构、库存、数据目标与追踪' }
+  ];
+
+  var SCHEMA = {
+    /* ============ 一、市场调研 ============ */
+    research: [
+      { id: 'r_cat', title: '1 类目调研', type: 'mixed',
+        checks: [
+          { k: 'r11', l: '1.1 类目赛道选择' }, { k: 'r12', l: '1.2 市场容量分析' },
+          { k: 'r13', l: '1.3 垄断程度分析' }, { k: 'r14', l: '1.4 细分市场分支罗列' },
+          { k: 'r15', l: '1.5 畅销榜和新品榜分析' }, { k: 'r16', l: '1.6 价格&促销' },
+          { k: 'r17', l: '1.7 星级评分' }, { k: 'r18', l: '1.8 日销月销' },
+          { k: 'r19', l: '1.9 变体数量' }, { k: 'r110', l: '1.10 店铺概况' }
+        ],
+        fields: [
+          { k: 'marketCap', l: '市场容量(月销售额$)', t: 'number' },
+          { k: 'cr3', l: 'CR3 垄断度(%)', t: 'number' },
+          { k: 'branches', l: '细分市场分支', t: 'text' },
+          { k: 'priceMin', l: '主流价下限$', t: 'number' }, { k: 'priceMax', l: '主流价上限$', t: 'number' },
+          { k: 'starLine', l: '星级临界点', t: 'number' },
+          { k: 'dailyUnits', l: '头部日销量', t: 'number' }, { k: 'variantCount', l: '平均变体数', t: 'number' }
+        ] },
+      { id: 'r_prod', title: '2 产品调研', type: 'mixed',
+        checks: [
+          { k: 'r21', l: '2.1 价格带分布' }, { k: 'r22', l: '2.2 类目4.3星级临界点' },
+          { k: 'r23', l: '2.3 退货率' }, { k: 'r24', l: '2.4 新品竞品筛选' }
+        ],
+        fields: [
+          { k: 'returnRate', l: '竞品退货率(%)', t: 'number' },
+          { k: 'compAsins', l: '竞品 ASIN（逗号分隔）', t: 'text' }
+        ] },
+      { id: 'r_sales', title: '3 销售量调研', type: 'mixed',
+        checks: [ { k: 'r31', l: '3.1 日销量分布' }, { k: 'r32', l: '3.2 销售额与盈利能力' } ],
+        table: { key: 'salesDist', cols: [ { k: 'bin', l: '日销区间' }, { k: 'count', l: '竞品数' }, { k: 'note', l: '备注' } ] } },
+      { id: 'r_point', title: '4 综合卖点与痛点调研', type: 'mixed',
+        checks: [ { k: 'r41', l: '4.1 市场综合卖点分析' }, { k: 'r42', l: '4.2 市场综合痛点分析' } ],
+        fields: [
+          { k: 'sellingPoints', l: '综合卖点', t: 'textarea' },
+          { k: 'painPoints', l: '综合痛点', t: 'textarea' }
+        ] },
+      { id: 'r_trend', title: '5 市场趋势与未来预测', type: 'mixed',
+        checks: [ { k: 'r51', l: '5.1 季节性及趋势分析' }, { k: 'r52', l: '5.2 法规与政策影响' } ],
+        fields: [
+          { k: 'seasonMonths', l: '旺季月份', t: 'text' },
+          { k: 'trend', l: '趋势判断', t: 'textarea' },
+          { k: 'policy', l: '法规政策', t: 'textarea' }
+        ] },
+      { id: 'r_life', title: '6 产品生命周期分析', type: 'mixed',
+        checks: [
+          { k: 'r61', l: '6.1 刚需 VS 潮流' }, { k: 'r62', l: '6.2 知识产权风险' },
+          { k: 'r63', l: '6.3 同质化速率' }
+        ],
+        fields: [
+          { k: 'needType', l: '刚需/潮流', t: 'select', opts: ['刚需', '潮流', '介于两者'] },
+          { k: 'ipRisk', l: '知识产权风险', t: 'textarea' },
+          { k: 'homogeneity', l: '同质化速率', t: 'text' }
+        ] },
+      { id: 'r_notes', title: '调研结论', type: 'notes' }
+    ],
+
+    /* ============ 二、类目细分（第二步接 UI，schema 先备好） ============ */
+    segment: [
+      { id: 's_same', title: '1 同款同类竞品', type: 'mixed',
+        checks: [ { k: 's11', l: '1.1 Listing 拆解' }, { k: 's12', l: '1.1.1 广告分组' }, { k: 's13', l: '1.1.2 广告模式' }, { k: 's14', l: '1.1.3 广告形式' } ],
+        table: { key: 'competitors', cols: [ { k: 'asin', l: 'ASIN' }, { k: 'price', l: '售价$' }, { k: 'strength', l: '优势' }, { k: 'weak', l: '弱点' } ] } },
+      { id: 's_strategy', title: '2 推广策略分析', type: 'mixed',
+        checks: [ { k: 's21', l: '2.1 自然 & 广告' }, { k: 's22', l: '2.2 类目4.3星级临界点' } ],
+        fields: [ { k: 'strategy', l: '推广策略', t: 'textarea' } ] },
+      { id: 's_price', title: '3 制定售价策略', type: 'mixed',
+        checks: [
+          { k: 's31', l: '3.1 低价竞争力' }, { k: 's32', l: '3.2 市场接受均值' },
+          { k: 's33', l: '3.3 区间灵活定价' }, { k: 's34', l: '3.4 差异化定价' }, { k: 's35', l: '3.5 高定价+促销' }
+        ],
+        fields: [ { k: 'acceptAvg', l: '市场接受均价$', t: 'number' }, { k: 'pricePlan', l: '定价结论', t: 'textarea' } ] },
+      { id: 's_point', title: '4 卖点痛点分析', type: 'mixed',
+        checks: [ { k: 's41', l: '4.1 属性' }, { k: 's42', l: '4.2 场景' }, { k: 's43', l: '4.3 人群' }, { k: 's44', l: '4.4 场景、模特、视频实拍' } ],
+        fields: [ { k: 'attrs', l: '属性', t: 'text' }, { k: 'scenes', l: '场景', t: 'text' }, { k: 'audience', l: '人群', t: 'text' } ] },
+      { id: 's_kw', title: '5 关键词库搭建', type: 'mixed',
+        checks: [ { k: 's51', l: '5.1 词频统计' }, { k: 's52', l: '5.2 关联度' }, { k: 's53', l: '5.3 关键词归类' }, { k: 's54', l: '5.4 ABA排名' }, { k: 's55', l: '5.5 转化率' }, { k: 's56', l: '5.6 竞争比' }, { k: 's57', l: '5.7 搜索趋势' } ],
+        table: { key: 'keywords', cols: [ { k: 'kw', l: '关键词' }, { k: 'freq', l: '词频' }, { k: 'rel', l: '关联度' }, { k: 'cat', l: '归类' }, { k: 'aba', l: 'ABA' }, { k: 'cvr', l: '转化率%' }, { k: 'comp', l: '竞争比' }, { k: 'trend', l: '趋势' } ] } },
+      { id: 's_backup', title: '6 未达目标备选方案', type: 'mixed',
+        checks: [ { k: 's61', l: '6.1 全面了解成本和收益' }, { k: 's62', l: '6.2 优化预算分配' }, { k: 's63', l: '6.3 风险控制' } ],
+        fields: [ { k: 'backupPlan', l: '备选方案', t: 'textarea' } ] },
+      { id: 's_notes', title: '细分结论', type: 'notes' }
+    ],
+
+    /* ============ 三、模拟预估（链式计算，第一步重点） ============ */
+    simulate: [
+      { id: 'm_price', title: '1 价格策略模拟', type: 'fields',
+        fields: [
+          { k: 'price', l: '售价 $', t: 'number', hint: '促销前标价' },
+          { k: 'promoPct', l: '促销折扣 %', t: 'number', hint: '如 10 表示打 9 折' },
+          { k: 'fx', l: '汇率 USD→CNY', t: 'number' },
+          { k: 'commissionPct', l: '平台佣金 %', t: 'number' },
+          { k: 'fbaFee', l: 'FBA 费 $/件', t: 'number' },
+          { k: 'otherFee', l: '其他平台费 $/件', t: 'number' }
+        ],
+        check: { k: 'm1', l: '价格策略已复核' } },
+      { id: 'm_margin', title: '2 毛利模拟盈亏', type: 'derived',
+        derived: ['netPerUnit', 'unitMargin', 'marginRate', 'breakevenAcos'],
+        check: { k: 'm2', l: '毛利盈亏已复核' } },
+      { id: 'm_cost', title: '3 投入成本模拟', type: 'fields',
+        fields: [
+          { k: 'batchCount', l: '发货批次数', t: 'number' },
+          { k: 'unitsPerBatch', l: '每批件数', t: 'number' },
+          { k: 'unitCost', l: '单件货值 ¥', t: 'number' },
+          { k: 'domesticPerUnit', l: '国内运输+人工 ¥/件', t: 'number' },
+          { k: 'freightPerUnit', l: '头程 ¥/件', t: 'number' }
+        ],
+        derived: ['totalUnits', 'goodsTotal', 'domesticTotal', 'freightTotal', 'investTotal'],
+        check: { k: 'm3', l: '投入成本已复核' } },
+      { id: 'm_convert', title: '4 提高转化的部署成本模拟', type: 'fields',
+        fields: [
+          { k: 'reviewCost', l: '评论（测评/Vine/直评）¥', t: 'number' },
+          { k: 'qaCost', l: 'Q&A ¥', t: 'number' },
+          { k: 'influenceCost', l: '影响者视频 ¥', t: 'number' },
+          { k: 'shootCost', l: '场景/模特/视频实拍 ¥', t: 'number' }
+        ],
+        derived: ['deployTotal'],
+        check: { k: 'm4', l: '转化部署成本已复核' } },
+      { id: 'm_cpc', title: '5 CPC 模拟', type: 'fields',
+        fields: [
+          { k: 'cpc', l: 'CPC $', t: 'number' },
+          { k: 'targetAcos', l: '目标 ACOS %', t: 'number' },
+          { k: 'cvr', l: '预计 CVR %', t: 'number' },
+          { k: 'adShare', l: '广告单占比 %', t: 'number' },
+          { k: 'days', l: '推广天数', t: 'number' },
+          { k: 'ordersPerDay', l: '日均单量', t: 'number' }
+        ],
+        derived: ['stageOrders', 'adOrders', 'adClicks', 'adSpend', 'adSales', 'actualAcos'],
+        check: { k: 'm5', l: 'CPC 模拟已复核' } },
+      { id: 'm_pnl', title: '6 阶段盈亏模拟', type: 'derived',
+        derived: ['stageSalesCny', 'stageGrossCny', 'stageNetCny', 'unitContribution', 'beOrders', 'beDays'],
+        check: { k: 'm6', l: '阶段盈亏已复核' } },
+      { id: 'm_notes', title: '测算结论', type: 'notes' }
+    ],
+
+    /* ============ 四、链接准备（第二步接 UI） ============ */
+    prepare: [
+      { id: 'p_base', title: '1 Listing 基础信息', type: 'mixed',
+        checks: [ { k: 'p11', l: '1 标题' }, { k: 'p12', l: '2 Bullet Point' }, { k: 'p13', l: '3 详情页描述' }, { k: 'p14', l: '4 属性' } ],
+        fields: [
+          { k: 'title', l: '标题', t: 'textarea' },
+          { k: 'bullets', l: '五点描述', t: 'textarea' },
+          { k: 'description', l: '详情页描述', t: 'textarea' },
+          { k: 'attributes', l: '属性', t: 'textarea' }
+        ] },
+      { id: 'p_art', title: '2 主副图、A+ 素材', type: 'mixed',
+        checks: [ { k: 'p21', l: '提出作图需求' } ],
+        table: { key: 'artReq', cols: [ { k: 'slot', l: '图位' }, { k: 'claim', l: '主张' }, { k: 'status', l: '素材状态' }, { k: 'owner', l: '负责人' } ] } },
+      { id: 'p_cert', title: '3 认证信息', type: 'mixed',
+        checks: [ { k: 'p31', l: '1 合规性认证' }, { k: 'p32', l: '2 危险品审核' } ],
+        fields: [ { k: 'certNote', l: '认证备注', t: 'textarea' } ] },
+      { id: 'p_traffic', title: '4 流量入口', type: 'mixed',
+        checks: [
+          { k: 'p41', l: '视频' }, { k: 'p42', l: '品牌故事' }, { k: 'p43', l: '品牌旗舰店' },
+          { k: 'p44', l: 'Q&A' }, { k: 'p45', l: '种子链接' }, { k: 'p46', l: '创作者链接' }, { k: 'p47', l: '促销折扣' }
+        ] },
+      { id: 'p_notes', title: '准备结论', type: 'notes' }
+    ],
+
+    /* ============ 五、推广计划（第二步接 UI） ============ */
+    promote: [
+      { id: 'g_idea', title: '1 推广思路与备选', type: 'mixed',
+        checks: [ { k: 'g01', l: '推广思路' }, { k: 'g02', l: '未达目标备选方案' } ],
+        fields: [ { k: 'idea', l: '推广思路', t: 'textarea' }, { k: 'backup', l: '备选方案', t: 'textarea' } ] },
+      { id: 'g_stock', title: '2 库存监控', type: 'mixed',
+        table: { key: 'stock', cols: [ { k: 'range', l: '库龄区间' }, { k: 'action', l: '动作' }, { k: 'threshold', l: '阈值/备注' } ] },
+        fields: [ { k: 'stockNote', l: '补货/清仓/重启计划', t: 'textarea' } ] },
+      { id: 'g_target', title: '3 动态追踪与数据目标', type: 'mixed',
+        table: { key: 'track', cols: [
+          { k: 'period', l: '推广周期' }, { k: 'impr', l: '曝光' }, { k: 'clicks', l: '点击量' },
+          { k: 'sales', l: '销售额$' }, { k: 'orders', l: '订单量' }, { k: 'spend', l: '花费$' },
+          { k: 'kwRank', l: '关键词排名' }, { k: 'catRank', l: '小类排名' }
+        ] },
+        derived: ['ctr', 'cvr', 'cpc', 'acos', 'tacos', 'cpa'] },
+      { id: 'g_goal', title: '4 广告目的', type: 'mixed',
+        checks: [
+          { k: 'g31', l: '利润' }, { k: 'g32', l: '打标收录' }, { k: 'g33', l: '拓词' },
+          { k: 'g34', l: '拓流' }, { k: 'g35', l: '测试' }
+        ] },
+      { id: 'g_struct', title: '5 广告结构', type: 'mixed',
+        checks: [
+          { k: 'g41', l: '广告分组' }, { k: 'g42', l: 'SP 广告' }, { k: 'g43', l: 'SB 广告' }, { k: 'g44', l: 'SD 广告' },
+          { k: 'g45', l: '自动-紧密匹配' }, { k: 'g46', l: '自动-宽泛匹配' }, { k: 'g47', l: '自动-同类匹配' }, { k: 'g48', l: '自动-关联匹配' },
+          { k: 'g49', l: '手动-关键词(广泛/词组/精准)' }, { k: 'g410', l: '手动-商品投放(ASIN/类目)' },
+          { k: 'g411', l: '形式-转化' }, { k: 'g412', l: '形式-排名' }, { k: 'g413', l: '形式-捡漏' }, { k: 'g414', l: '形式-关联' }
+        ] },
+      { id: 'g_form', title: '6 广告形式与出价', type: 'mixed',
+        table: { key: 'adPlan', cols: [ { k: 'campaign', l: '广告活动' }, { k: 'type', l: '模式' }, { k: 'match', l: '匹配' }, { k: 'target', l: '投放词/ASIN' }, { k: 'bid', l: '竞价$' }, { k: 'budget', l: '日预算$' } ] } },
+      { id: 'g_notes', title: '推广结论', type: 'notes' }
+    ]
+  };
+
+  /* 模拟预估的展示指标（compute 产出） */
+  var DERIVED_LABELS = {
+    netPerUnit: '单件净销售额 $', unitMargin: '单件毛利 ¥', marginRate: '毛利率 %', breakevenAcos: '保本 ACOS %',
+    totalUnits: '总件数', goodsTotal: '货值合计 ¥', domesticTotal: '国内运输人工 ¥', freightTotal: '头程合计 ¥', investTotal: '投入成本合计 ¥',
+    deployTotal: '一次性部署成本 ¥',
+    stageOrders: '阶段订单数', adOrders: '广告订单数', adClicks: '广告点击数', adSpend: '广告花费 $', adSales: '广告销售额 $', actualAcos: '实际 ACOS %',
+    stageSalesCny: '阶段销售额 ¥', stageGrossCny: '阶段毛利 ¥', stageNetCny: '阶段净盈亏 ¥',
+    unitContribution: '含广告单位贡献 ¥', beOrders: '盈亏平衡单量', beDays: '回本天数',
+    ctr: 'CTR %', cvr: 'CVR %', cpc: 'CPC $', acos: 'ACOS %', tacos: 'TACOS %', cpa: 'CPA $'
+  };
+
+  global.SOP_CONTENT = { STAGES: STAGES, SCHEMA: SCHEMA, DERIVED_LABELS: DERIVED_LABELS };
+})(window);
+
+/* SOP 计算引擎：纯函数、零依赖。公式只在这里实现，UI 不重复写。 */
+(function (global) {
+  "use strict";
+
+  var C = global.SOP_CONTENT;
+  var STAGE_KEYS = C.STAGES.map(function (s) { return s.k; });
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function n(v) { var x = parseFloat(v); return isNaN(x) ? 0 : x; }
+  function r2(x) { return Math.round(x * 100) / 100; }
+  function div(a, b) { return b ? a / b : null; }
+
+  function emptyStage() { return { checks: {}, fields: {}, tables: {}, notes: '', updatedAt: 0 }; }
+  function blankProject(name) {
+    var stages = {};
+    STAGE_KEYS.forEach(function (k) { stages[k] = emptyStage(); });
+    return {
+      id: uid(), name: name || '未命名新品', asin: '', sku: '', marketplace: 'US', category: '',
+      status: 'active', currentStage: 'research', createdAt: Date.now(), updatedAt: Date.now(), stages: stages
+    };
+  }
+  function normalize(db) {
+    if (!db || !Array.isArray(db.projects)) db = { version: 1, settings: { lastProjectId: '' }, projects: [] };
+    db.version = 1;
+    if (!db.settings) db.settings = { lastProjectId: '' };
+    db.projects.forEach(function (p) {
+      if (!p.stages) p.stages = {};
+      STAGE_KEYS.forEach(function (k) {
+        var s = p.stages[k] || {};
+        p.stages[k] = {
+          checks: s.checks || {}, fields: s.fields || {}, tables: s.tables || {},
+          notes: s.notes || '', updatedAt: s.updatedAt || 0
+        };
+      });
+      if (!p.id) p.id = uid();
+      if (!p.currentStage) p.currentStage = 'research';
+    });
+    return db;
+  }
+
+  /* 完成度：checklist + section.check + 已填字段也算部分完成 */
+  function progress(project, stageKey) {
+    var schema = C.SCHEMA[stageKey] || [], st = (project.stages && project.stages[stageKey]) || emptyStage();
+    var total = 0, done = 0;
+    schema.forEach(function (sec) {
+      (sec.checks || []).forEach(function (c) { total++; if (st.checks[c.k]) done++; });
+      if (sec.check) { total++; if (st.checks[sec.check.k]) done++; }
+    });
+    return { done: done, total: total, pct: total ? Math.round(done / total * 100) : 0 };
+  }
+  function overall(project) {
+    var sum = 0, cnt = 0;
+    STAGE_KEYS.forEach(function (k) { var p = progress(project, k); sum += p.done; cnt += p.total; });
+    return cnt ? Math.round(sum / cnt * 100) : 0;
+  }
+
+  /* ---- 模拟预估：链式计算。全部由 fields 派生，不存冗余结果 ---- */
+  function computeSimulate(fields) {
+    var price = n(fields.price), promo = n(fields.promoPct) / 100, fx = n(fields.fx) || 6.7141;
+    var comm = n(fields.commissionPct) / 100, fba = n(fields.fbaFee), other = n(fields.otherFee);
+    var promoPrice = price * (1 - promo);
+    var netPerUnit = promoPrice - price * comm - fba - other;                 // USD
+    var unitCost = n(fields.unitCost), domestic = n(fields.domesticPerUnit), freight = n(fields.freightPerUnit);
+    var unitMargin = netPerUnit * fx - unitCost - domestic - freight;          // CNY
+    var marginRate = div(unitMargin, promoPrice * fx);
+    var totalUnits = n(fields.batchCount) * n(fields.unitsPerBatch);
+    var goodsTotal = totalUnits * unitCost, domesticTotal = totalUnits * domestic, freightTotal = totalUnits * freight;
+    var investTotal = goodsTotal + domesticTotal + freightTotal;
+    var deployTotal = n(fields.reviewCost) + n(fields.qaCost) + n(fields.influenceCost) + n(fields.shootCost);
+    var cpc = n(fields.cpc), cvr = n(fields.cvr) / 100, adShare = n(fields.adShare) / 100;
+    var days = n(fields.days), ordersPerDay = n(fields.ordersPerDay);
+    var stageOrders = ordersPerDay * days, adOrders = stageOrders * adShare;
+    var adClicks = div(adOrders, cvr), adSpend = adClicks * cpc, adSales = adOrders * promoPrice;
+    var actualAcos = div(adSpend, adSales);
+    var stageSalesCny = stageOrders * promoPrice * fx, stageGrossCny = unitMargin * stageOrders;
+    var stageNetCny = stageGrossCny - adSpend * fx - deployTotal;
+    var unitContribution = unitMargin - div(cpc, cvr) * adShare * fx;
+    var beOrders = unitContribution > 0 ? deployTotal / unitContribution : null;
+    var beDays = beOrders !== null && ordersPerDay ? beOrders / ordersPerDay : null;
+    return {
+      netPerUnit: r2(netPerUnit), unitMargin: r2(unitMargin),
+      marginRate: marginRate === null ? null : r2(marginRate * 100),
+      breakevenAcos: marginRate === null ? null : r2(marginRate * 100),
+      totalUnits: Math.round(totalUnits), goodsTotal: r2(goodsTotal), domesticTotal: r2(domesticTotal),
+      freightTotal: r2(freightTotal), investTotal: r2(investTotal), deployTotal: r2(deployTotal),
+      stageOrders: Math.round(stageOrders), adOrders: Math.round(adOrders), adClicks: Math.round(adClicks),
+      adSpend: r2(adSpend), adSales: r2(adSales), actualAcos: actualAcos === null ? null : r2(actualAcos * 100),
+      stageSalesCny: r2(stageSalesCny), stageGrossCny: r2(stageGrossCny), stageNetCny: r2(stageNetCny),
+      unitContribution: unitContribution === null ? null : r2(unitContribution),
+      beOrders: beOrders === null ? null : Math.ceil(beOrders), beDays: beDays === null ? null : r2(beDays),
+      _promoPrice: r2(promoPrice)
+    };
+  }
+
+  /* ---- 推广计划数据目标：从 track 表聚合派生（第二步用，先实现） ---- */
+  function computeTrack(rows) {
+    var s = { impr: 0, clicks: 0, sales: 0, orders: 0, spend: 0, totalSales: 0 };
+    (rows || []).forEach(function (r) {
+      s.impr += n(r.impr); s.clicks += n(r.clicks); s.sales += n(r.sales);
+      s.orders += n(r.orders); s.spend += n(r.spend);
+    });
+    s.totalSales = s.sales;
+    return {
+      ctr: div(s.clicks, s.impr) === null ? null : r2(div(s.clicks, s.impr) * 100),
+      cvr: div(s.orders, s.clicks) === null ? null : r2(div(s.orders, s.clicks) * 100),
+      cpc: div(s.spend, s.clicks) === null ? null : r2(div(s.spend, s.clicks)),
+      acos: div(s.spend, s.sales) === null ? null : r2(div(s.spend, s.sales) * 100),
+      tacos: div(s.spend, s.totalSales) === null ? null : r2(div(s.spend, s.totalSales) * 100),
+      cpa: div(s.spend, s.orders) === null ? null : r2(div(s.spend, s.orders))
+    };
+  }
+
+  function compute(project, stageKey) {
+    var st = (project.stages && project.stages[stageKey]) || emptyStage();
+    if (stageKey === 'simulate') return computeSimulate(st.fields);
+    if (stageKey === 'promote') return computeTrack(st.tables && st.tables.track);
+    return {};
+  }
+
+  /* 从上次核算结果带入真实成本与汇率 */
+  function importFromProfit(project, profitResult) {
+    if (!profitResult || !profitResult.summary) return { ok: false, msg: '没有核算结果' };
+    var f = project.stages.simulate.fields, s = profitResult.summary;
+    f.fx = s.fx || f.fx;
+    var sku = project.sku;
+    if (sku && profitResult.bySku) {
+      var row = profitResult.bySku.filter(function (x) { return x.sku === sku; })[0];
+      if (row) { f.unitCost = row.unitCost || 0; f.freightPerUnit = row.airFreight || 0; }
+      else return { ok: true, msg: '汇率已带入；未找到该 SKU 的成本' };
+    }
+    return { ok: true, msg: '已带入核算汇率与' + (sku ? '该 SKU 成本' : '成本（填写 SKU 后可精确带入）') };
+  }
+
+  global.SOPEngine = {
+    uid: uid, blankProject: blankProject, normalize: normalize,
+    progress: progress, overall: overall, compute: compute,
+    computeSimulate: computeSimulate, computeTrack: computeTrack,
+    importFromProfit: importFromProfit, STAGE_KEYS: STAGE_KEYS
+  };
+})(window);
+
+/* SOP 渲染层：返回 HTML 字符串；状态与事件由 app.js 持有。 */
+(function (global) {
+  "use strict";
+  var C = global.SOP_CONTENT, E = global.SOPEngine;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function yuan(n) { return '¥' + Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function val(v) { return v === null || v === undefined ? '—' : String(v); }
+
+  /* 项目列表 / 切换器 */
+  function projects(db, activeId) {
+    var h = '<div class="sop-projects">';
+    if (!db.projects.length) {
+      h += '<div class="empty">还没有项目。点「新建项目」开始一个新品的全链路推广。</div>';
+    } else {
+      db.projects.forEach(function (p) {
+        if (p.status === 'archived') return;
+        var on = p.id === activeId;
+        var pr = E.overall(p);
+        h += '<button class="sop-proj' + (on ? ' on' : '') + '" data-sop="switch" data-id="' + p.id + '">' +
+          '<span class="sop-proj-name">' + esc(p.name) + '</span>' +
+          '<span class="sop-proj-meta">' + (p.asin ? esc(p.asin) + ' · ' : '') + pr + '% · ' +
+          esc((C.STAGES.filter(function (s) { return s.k === p.currentStage; })[0] || {}).l || '') + '</span></button>';
+      });
+    }
+    h += '<button class="btn btn-sm" data-sop="new">+ 新建项目</button>';
+    h += '</div>';
+    return h;
+  }
+
+  /* 新建表单（内嵌，点新建展开） */
+  function newForm(open) {
+    if (!open) return '';
+    return '<div class="card sop-new"><div class="card-title">新建新品项目</div>' +
+      '<div class="form-grid">' +
+      '<div class="field"><label>项目名</label><input data-sop-new="name" placeholder="如：宠物漏食球"></div>' +
+      '<div class="field"><label>ASIN（可后补）</label><input data-sop-new="asin" placeholder="B0XXXXXXX"></div>' +
+      '<div class="field"><label>SKU / MSKU（利润主键）</label><input data-sop-new="sku" placeholder="可后补"></div>' +
+      '<div class="field"><label>类目</label><input data-sop-new="category" placeholder="如：Pet Toys"></div>' +
+      '</div><div class="pill-row"><button class="btn btn-primary" data-sop="new-save">创建</button>' +
+      '<button class="btn" data-sop="new-cancel">取消</button></div></div>';
+  }
+
+  /* 五阶段进度条 */
+  function stages(p, activeStage) {
+    var h = '<div class="sop-stages">';
+    C.STAGES.forEach(function (s, i) {
+      var pr = E.progress(p, s.k), on = s.k === activeStage;
+      var ready = i === 0 || E.progress(p, C.STAGES[i - 1].k).pct >= 80;
+      h += '<button class="sop-stage ' + s.color + (on ? ' on' : '') + (!ready ? ' locked' : '') +
+        '" data-sop="stage" data-stage="' + s.k + '">' +
+        '<span class="sop-stage-idx">' + (i + 1) + '</span>' +
+        '<span class="sop-stage-l">' + esc(s.l) + '</span>' +
+        '<span class="sop-stage-pct">' + pr.pct + '%</span></button>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  /* 项目信息编辑条 */
+  function projBar(p, editOpen) {
+    var h = '<div class="card"><div class="card-title">项目信息 <button class="btn-link green" data-sop="edit-toggle">改</button></div>';
+    if (editOpen) {
+      h += '<div class="form-grid">' +
+        '<div class="field"><label>项目名</label><input data-sop-edit="name" value="' + esc(p.name) + '"></div>' +
+        '<div class="field"><label>ASIN（流量主键）</label><input data-sop-edit="asin" value="' + esc(p.asin) + '"></div>' +
+        '<div class="field"><label>SKU / MSKU（利润主键）</label><input data-sop-edit="sku" value="' + esc(p.sku) + '"></div>' +
+        '<div class="field"><label>类目</label><input data-sop-edit="category" value="' + esc(p.category) + '"></div>' +
+        '</div><div class="pill-row"><button class="btn btn-primary btn-sm" data-sop="edit-save">保存</button>' +
+        '<button class="btn btn-sm" data-sop="edit-cancel">取消</button></div>';
+    } else {
+      h += '<div class="sop-meta">ASIN：' + (p.asin ? esc(p.asin) : '未填') + ' · SKU：' + (p.sku ? esc(p.sku) : '未填') +
+        ' · 类目：' + (p.category ? esc(p.category) : '未填') + ' · 总进度 ' + E.overall(p) + '%</div>';
+    }
+    h += '<div class="pill-row"><button class="btn btn-sm" data-sop="export-json">导出 JSON</button>' +
+      '<button class="btn btn-sm" data-sop="import-profit">带入核算成本</button>' +
+      '<button class="btn btn-sm" data-sop="archive">归档项目</button></div></div>';
+    return h;
+  }
+
+  /* 通用：可勾清单 */
+  function checks(sec, st) {
+    var h = '<div class="sop-checks">';
+    (sec.checks || []).forEach(function (c) {
+      h += '<label class="sop-check' + (st.checks[c.k] ? ' done' : '') + '">' +
+        '<input type="checkbox" data-sop-check="' + c.k + '"' + (st.checks[c.k] ? ' checked' : '') + '>' +
+        '<span>' + esc(c.l) + '</span></label>';
+    });
+    if (sec.check) {
+      h += '<label class="sop-check' + (st.checks[sec.check.k] ? ' done' : '') + '">' +
+        '<input type="checkbox" data-sop-check="' + sec.check.k + '"' + (st.checks[sec.check.k] ? ' checked' : '') + '>' +
+        '<span>' + esc(sec.check.l) + '</span></label>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  /* 通用：录入字段 */
+  function fields(sec, st) {
+    var h = '<div class="form-grid sop-fields">';
+    (sec.fields || []).forEach(function (f) {
+      var v = st.fields[f.k] === undefined ? '' : st.fields[f.k];
+      var inp;
+      if (f.t === 'textarea') inp = '<textarea data-sop-field="' + f.k + '" rows="3">' + esc(v) + '</textarea>';
+      else if (f.t === 'select') {
+        inp = '<select data-sop-field="' + f.k + '">' + (f.opts || []).map(function (o) {
+          return '<option' + (String(v) === o ? ' selected' : '') + '>' + esc(o) + '</option>';
+        }).join('') + '</select>';
+      } else inp = '<input type="' + (f.t === 'number' ? 'number' : 'text') + '" data-sop-field="' + f.k + '" value="' + esc(v) + '">';
+      h += '<div class="field"><label>' + esc(f.l) + '</label>' + inp +
+        (f.hint ? '<span class="sop-hint">' + esc(f.hint) + '</span>' : '') + '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  /* 通用：表格 */
+  function table(sec, st) {
+    var t = sec.table; if (!t) return '';
+    var rows = st.tables[t.key] || [];
+    var h = '<div class="tbl-wrap sop-table"><table class="tbl"><thead><tr>' +
+      t.cols.map(function (c) { return '<th>' + esc(c.l) + '</th>'; }).join('') + '<th></th></tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      h += '<tr>' + t.cols.map(function (c) {
+        return '<td><input data-sop-cell="' + t.key + '" data-row="' + i + '" data-col="' + c.k + '" value="' + esc(r[c.k] || '') + '"></td>';
+      }).join('') + '<td><button class="btn-link" data-sop="row-del" data-key="' + t.key + '" data-row="' + i + '">×</button></td></tr>';
+    });
+    h += '</tbody></table><button class="btn btn-sm" data-sop="row-add" data-key="' + t.key + '">+ 加一行</button></div>';
+    return h;
+  }
+
+  /* 通用：自动算展示 */
+  function derived(sec, values) {
+    var h = '<div class="sop-derived">';
+    (sec.derived || []).forEach(function (k) {
+      var v = values[k], label = (C.DERIVED_LABELS || {})[k] || k;
+      var cls = (v === null || v === undefined) ? ' na' : (typeof v === 'number' && v < 0 ? ' neg' : '');
+      h += '<div class="sop-der' + cls + '"><span>' + esc(label) + '</span><b>' + esc(val(v)) + '</b></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  /* 阶段内容 */
+  function stageContent(p, stageKey) {
+    var schema = C.SCHEMA[stageKey] || [], st = p.stages[stageKey];
+    var values = E.compute(p, stageKey);
+    var pr = E.progress(p, stageKey);
+    var h = '<div class="card"><div class="card-title">完成度 <span class="tag green">' + pr.done + ' / ' + pr.total + ' 项 · ' + pr.pct + '%</span></div>' +
+      '<div class="bar green"><div class="bar-fill green" style="width:' + pr.pct + '%"></div></div></div>';
+
+    schema.forEach(function (sec) {
+      h += '<div class="card"><div class="card-title">' + esc(sec.title) + '</div>';
+      if (sec.checks || sec.check) h += checks(sec, st);
+      if (sec.fields) h += fields(sec, st);
+      if (sec.table) h += table(sec, st);
+      if (sec.derived) h += derived(sec, values);
+      if (sec.type === 'notes') {
+        h += '<textarea data-sop-notes rows="4" placeholder="记下这一阶段的结论、决定、待跟进…">' + esc(st.notes || '') + '</textarea>';
+      }
+      h += '</div>';
+    });
+
+    /* 模拟预估：把保本 ACOS 回填广告页的入口 */
+    if (stageKey === 'simulate' && values.breakevenAcos !== null && values.breakevenAcos !== undefined) {
+      h += '<div class="card"><div class="card-sub">保本 ACOS <b>' + values.breakevenAcos + '%</b> —— 可回填为广告页的目标 ACOS。</div>' +
+        '<button class="btn btn-sm" data-sop="apply-acos" data-v="' + values.breakevenAcos + '">回填到广告页</button></div>';
+    }
+    return h;
+  }
+
+  /* 未上线的阶段占位 */
+  function comingSoon(stageKey) {
+    var s = C.STAGES.filter(function (x) { return x.k === stageKey; })[0] || {};
+    return '<div class="card"><div class="page-head"><span class="sop-stage-dot ' + (s.color || '') + '"></span>' +
+      '<div><div class="ph-title">' + esc(s.l || '该阶段') + '</div><div class="card-sub">' + esc(s.hint || '') + '</div></div></div>' +
+      '<div class="empty">该阶段的完整表单将在第二步上线。结构已在准备中，数据模型已就绪。</div></div>';
+  }
+
+  function page(db, activeId, stage, newOpen, editOpen) {
+    var p = db.projects.filter(function (x) { return x.id === activeId; })[0];
+    var h = '<div class="page-head"><h1>项目</h1><p>新品推广全链路 · 市场调研 → 类目细分 → 模拟预估 → 链接准备 → 推广计划</p></div>';
+    h += projects(db, activeId) + newForm(newOpen);
+    if (!p) return h;
+    h += stages(p, stage) + projBar(p, editOpen);
+    h += (stage === 'research' || stage === 'simulate') ? stageContent(p, stage) : comingSoon(stage);
+    return h;
+  }
+
+  global.SOPView = { page: page, projects: projects, stages: stages, stageContent: stageContent };
+})(window);
+</script>
 <script>/* 文案与常量：所有反馈措辞集中在这里，方便以后调整语气 */
 const CONTENT = {
   STORAGE_KEY: 'amz_feedback_v1',
@@ -920,6 +1517,7 @@ const CONTENT = {
   'use strict';
 
   const KEY = CONTENT.STORAGE_KEY;
+  const SOP_KEY = 'amz_sop_v1';
   const DAY = 86400000;
   const KNOW_TO_OPS = {
     '政策合规': { view: 'opt', types: ['核算', '供应链'] },
@@ -973,6 +1571,25 @@ const CONTENT = {
     };
   }
   let DB;
+  /* ---- SOP 项目数据（独立 key，不碰旧数据） ---- */
+  function sopLoad() {
+    try {
+      var raw = localStorage.getItem(SOP_KEY);
+      return window.SOPEngine.normalize(raw ? JSON.parse(raw) : null);
+    } catch (e) { return window.SOPEngine.normalize(null); }
+  }
+  function sopSave(db) {
+    try { localStorage.setItem(SOP_KEY, JSON.stringify(db)); return true; }
+    catch (e) { toast('项目存储空间不足，导出后清理旧项目'); return false; }
+  }
+  function sopCurrent() {
+    var db = sopLoad();
+    var id = UI.sopProject || db.settings.lastProjectId;
+    var p = db.projects.filter(function (x) { return x.id === id && x.status !== 'archived'; })[0];
+    if (!p && db.projects.length) p = db.projects.filter(function (x) { return x.status !== 'archived'; })[0];
+    return { db: db, project: p || null };
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
@@ -1016,21 +1633,25 @@ const CONTENT = {
       saleOrders: '', saleRevenue: '', saleProfit: '', saleAd: '', saleAcos: ''
     },
     moreOpen: false, settingsOpen: false, fillOpen: null, goalsOpen: false, goalQuick: false,
-    aiBusy: false, lastPraise: {}, aiError: ''
+    aiBusy: false, lastPraise: {}, aiError: '',
+    sopProject: '', sopStage: 'research', sopNewOpen: false, sopEditOpen: false
   };
 
   /* ---------- 路由 ---------- */
   const TABS = [
-    { k: 'home', l: '总览', icon: 'home' }, { k: 'sourcing', l: '选品', icon: 'target' },
-    { k: 'listing', l: 'Listing', icon: 'image' }, { k: 'ads', l: '广告', icon: 'ads' },
-    { k: 'data', l: '数据', icon: 'profit' }, { k: 'feedback', l: '反馈', icon: 'db' },
-    { k: 'report', l: '周报', icon: 'home' }
+    { k: 'home', l: '总览', icon: 'home' }, { k: 'sop', l: '项目', icon: 'target' },
+    { k: 'ads', l: '广告', icon: 'ads' }, { k: 'data', l: '数据', icon: 'profit' },
+    { k: 'feedback', l: '反馈', icon: 'db' }, { k: 'report', l: '周报', icon: 'home' }
   ];
   function validTab(k) { return TABS.some(function (t) { return t.k === k; }); }
   function parseHash() {
     const h = (location.hash || '').replace(/^#/, '');
     if (h.indexOf('feedback') === 0) {
       return { tab: 'feedback', sub: h.indexOf('learn') >= 0 ? 'learn' : 'ops', view: h.indexOf('src') >= 0 ? 'src' : 'opt', learnSub: h.indexOf('other') >= 0 ? 'other' : 'know' };
+    }
+    if (h.indexOf('sop') === 0) {
+      var parts = h.split('-');
+      return { tab: 'sop', project: parts[1] || '', stage: parts[2] || 'research' };
     }
     if (validTab(h.split('-')[0])) return { tab: h.split('-')[0] };
     return { tab: 'home' };
@@ -1040,6 +1661,7 @@ const CONTENT = {
     if (r.sub) UI.fbSub = r.sub;
     if (r.view) UI.opsView = r.view;
     if (r.learnSub) UI.learnSub = r.learnSub;
+    if (r.tab === 'sop') { if (r.project) UI.sopProject = r.project; if (r.stage) UI.sopStage = r.stage; }
   }
   function go(tab, extra) {
     if (!validTab(tab)) return;
@@ -1052,9 +1674,20 @@ const CONTENT = {
       if (UI.fbSub === 'learn') h += '-learn' + (UI.learnSub === 'other' ? '-other' : '');
       else if (UI.opsView === 'src') h += '-ops-src';
     }
+    if (tab === 'sop' && UI.sopProject) h += '-' + UI.sopProject + '-' + UI.sopStage;
     try { history.replaceState(null, '', h); } catch (e) { location.hash = h; }
     UI.fillOpen = null; renderAll();
     window.scrollTo(0, 0);
+  }
+  function sopGo(stage, projectId) {
+    if (projectId) UI.sopProject = projectId;
+    UI.sopStage = stage || 'research';
+    var p = sopCurrent().project;
+    if (p) p.currentStage = UI.sopStage;
+    var db = sopLoad();
+    db.settings.lastProjectId = UI.sopProject;
+    sopSave(db);
+    go('sop');
   }
 
   /* ---------- 反馈语料选择 ---------- */
@@ -1754,6 +2387,17 @@ const CONTENT = {
   function renderHome() {
     const st = wbState(), k = st.kpi;
     let h = '<div class="page-head"><h1>总览</h1><p>工作台数据底座 · 账期 ' + esc(st.period) + '</p></div>';
+    /* SOP 项目进度概览 */
+    var sdb = sopLoad(), actives = sdb.projects.filter(function (p) { return p.status !== 'archived'; });
+    h += '<div class="card"><div class="card-title">新品项目 <button class="btn-link green" data-sop="goto">进入项目 →</button></div>' +
+      (actives.length
+        ? actives.map(function (p) {
+            var stg = (window.SOP_CONTENT.STAGES.filter(function (s) { return s.k === p.currentStage; })[0] || {}).l || '';
+            return '<div class="row"><span class="dot green"></span><span class="row-text">' + esc(p.name) +
+              '<br><span class="mins">' + (p.asin ? esc(p.asin) + ' · ' : '') + esc(stg) + '</span></span>' +
+              '<span class="tag green">' + window.SOPEngine.overall(p) + '%</span></div>';
+          }).join('')
+        : '<div class="empty">还没有新品项目。点「进入项目」新建，按 SOP 五阶段推进。</div>') + '</div>';
     h += '<div class="card"><div class="card-title">数据状态</div>' +
       '<div class="card-sub">' + (st.demo ? '演示数据 · 尚未导入本地计算结果' : ('更新于 ' + esc(st.updatedAt || '未知时间'))) + '</div>' +
       '<div class="pill-row"><button class="btn btn-primary" data-act="wb-import">导入 result.json</button>' +
@@ -2334,16 +2978,19 @@ const CONTENT = {
       : '近 30 天 ' + activeDays(activeItems) + ' 天有记录 · 数据只存本机';
     let body;
     if (UI.tab === 'home') body = renderHome();
+    else if (UI.tab === 'sop') {
+      var sc = sopCurrent();
+      if (sc.project) UI.sopProject = sc.project.id;
+      body = window.SOPView.page(sc.db, UI.sopProject, UI.sopStage, UI.sopNewOpen, UI.sopEditOpen);
+    }
     else if (UI.tab === 'ads') body = renderAds();
-    else if (UI.tab === 'sourcing' || UI.tab === 'listing') body = renderWorkModule(UI.tab);
     else if (UI.tab === 'data') body = renderCalcPanel() + renderData();
     else if (UI.tab === 'feedback') body = renderFeedback();
     else body = renderReport();
     document.getElementById('view').innerHTML = body;
     const foots = {
       home: '工作台数据底座：MSKU 做利润主键、ASIN 做流量主键；文件不上传，结果只存本机。',
-      sourcing: '选品是唯一还没有现成引擎的环节，框架先占位，接 Sorftime 数据后再填。',
-      listing: 'Listing 产出以文件为主，这里只做索引与版本记录。',
+      sop: '一个新品就是一个项目，按 SOP 五阶段推进；每阶段的清单与测算只存在本机。',
       ads: '广告结论要和利润口径对齐，否则会出现「ACOS 降了但利润没涨」。',
       data: '这一页是看板不是打卡：报表核算在本地完成，利润为真实值；目标缺口按剩余天数摊平，断一天不扣分。',
       feedback: '经营只数可控动作、不看单量；学习两个子区各自独立统计。中断不清零，回来记第一条就续上。',
@@ -2353,7 +3000,117 @@ const CONTENT = {
   }
 
   /* ---------- 事件 ---------- */
+  /* ---------- SOP 项目事件 ---------- */
   const view = document.getElementById('view');
+  function sopMutate(fn) {
+    var db = sopLoad(); fn(db); sopSave(db); renderAll();
+  }
+  function sopNewSave() {
+    var name = (document.querySelector('[data-sop-new="name"]') || {}).value || '';
+    if (!name.trim()) { toast('先填项目名'); return; }
+    var p = window.SOPEngine.blankProject(name.trim());
+    ['asin', 'sku', 'category'].forEach(function (k) {
+      var el = document.querySelector('[data-sop-new="' + k + '"]');
+      if (el) p[k] = el.value.trim();
+    });
+    sopMutate(function (db) {
+      db.projects.push(p); db.settings.lastProjectId = p.id;
+    });
+    UI.sopProject = p.id; UI.sopStage = 'research'; UI.sopNewOpen = false;
+    go('sop');
+    toast('项目已创建');
+  }
+  view.addEventListener('click', function (e) {
+    const sEl = e.target.closest('[data-sop]');
+    if (!sEl) return;
+    const a = sEl.dataset.sop;
+    if (a === 'goto') { UI.sopNewOpen = false; go('sop'); return; }
+    if (a === 'new') { UI.sopNewOpen = true; renderAll(); return; }
+    if (a === 'new-save') { sopNewSave(); return; }
+    if (a === 'new-cancel') { UI.sopNewOpen = false; renderAll(); return; }
+    if (a === 'switch') {
+      UI.sopEditOpen = false;
+      UI.sopProject = sEl.dataset.id;
+      var pp = sopCurrent().project; UI.sopStage = pp ? pp.currentStage : 'research';
+      sopMutate(function (db) { db.settings.lastProjectId = UI.sopProject; });
+      return;
+    }
+    if (a === 'stage') {
+      var target = sEl.dataset.stage;
+      if (target !== 'research' && target !== 'simulate') {
+        UI.sopStage = target; renderAll(); return;
+      }
+      sopGo(target); return;
+    }
+    if (a === 'row-add') {
+      var key = sEl.dataset.key;
+      sopMutate(function (db) {
+        var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (!p) return;
+        if (!p.stages[UI.sopStage].tables[key]) p.stages[UI.sopStage].tables[key] = [];
+        p.stages[UI.sopStage].tables[key].push({});
+        p.stages[UI.sopStage].updatedAt = Date.now();
+      });
+      return;
+    }
+    if (a === 'row-del') {
+      var key2 = sEl.dataset.key, idx = Number(sEl.dataset.row);
+      sopMutate(function (db) {
+        var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (p && p.stages[UI.sopStage].tables[key2]) {
+          p.stages[UI.sopStage].tables[key2].splice(idx, 1);
+          p.stages[UI.sopStage].updatedAt = Date.now();
+        }
+      });
+      return;
+    }
+    if (a === 'import-profit') {
+      var pr = profitLoad();
+      if (!pr) { toast('还没有核算结果，先去数据页跑一次'); return; }
+      sopMutate(function (db) {
+        var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (p) { var r = window.SOPEngine.importFromProfit(p, pr); toast(r.msg); }
+      });
+      return;
+    }
+    if (a === 'apply-acos') {
+      var v = Number(sEl.dataset.v);
+      DB.settings.acosWarn = v; save(); toast('目标 ACOS 已回填为 ' + v + '%'); renderAll(); return;
+    }
+    if (a === 'edit-toggle') { UI.sopEditOpen = !UI.sopEditOpen; renderAll(); return; }
+    if (a === 'edit-cancel') { UI.sopEditOpen = false; renderAll(); return; }
+    if (a === 'edit-save') {
+      sopMutate(function (db) {
+        var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (!p) return;
+        document.querySelectorAll('[data-sop-edit]').forEach(function (i) {
+          p[i.dataset.sopEdit] = i.value.trim();
+        });
+        p.updatedAt = Date.now();
+      });
+      UI.sopEditOpen = false; toast('项目信息已保存'); return;
+    }
+    if (a === 'archive') {
+      if (!window.confirm('归档这个项目？列表里将隐藏，数据仍保留。')) return;
+      sopMutate(function (db) {
+        var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (p) p.status = 'archived';
+      });
+      UI.sopProject = ''; toast('项目已归档'); return;
+    }
+    if (a === 'export-json') {
+      var pj = sopCurrent().project;
+      if (!pj) { toast('先建项目'); return; }
+      var blob = new Blob([JSON.stringify(pj, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = 'SOP-' + pj.name + '-' + today() + '.json';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast('项目 JSON 已导出');
+      return;
+    }
+  });
+
   view.addEventListener('click', function (e) {
     const el = e.target.closest('[data-act]');
     if (!el) return;
@@ -2436,16 +3193,46 @@ const CONTENT = {
       case 'clear': clearAll(); break;
     }
   });
+  /* SOP 字段写入（只存不渲染，避免丢焦点） */
+  function sopWriteField(t) {
+    if (!UI.sopProject) return;
+    var db = sopLoad();
+    var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+    if (!p) return;
+    var st = p.stages[UI.sopStage];
+    if (t.dataset.sopCheck !== undefined) st.checks[t.dataset.sopCheck] = t.checked;
+    else if (t.dataset.sopField !== undefined) st.fields[t.dataset.sopField] = t.value;
+    else if (t.dataset.sopNotes !== undefined) st.notes = t.value;
+    else if (t.dataset.sopCell !== undefined) {
+      var key = t.dataset.sopCell, i = Number(t.dataset.row), col = t.dataset.col;
+      if (!st.tables[key]) st.tables[key] = [];
+      while (st.tables[key].length <= i) st.tables[key].push({});
+      st.tables[key][i][col] = t.value;
+    } else return;
+    st.updatedAt = Date.now(); p.updatedAt = Date.now();
+    sopSave(db);
+  }
   view.addEventListener('input', function (e) {
     if (e.target.dataset.model) UI.form[e.target.dataset.model] = e.target.value;
     if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
     if (e.target.dataset.ppc === 'target') UI.ppcTarget = e.target.value;
+    sopWriteField(e.target);
   });
   view.addEventListener('change', function (e) {
     const t = e.target;
     if (t.dataset.check) UI.form[t.dataset.check] = t.checked;
     if (t.dataset.model) UI.form[t.dataset.model] = t.value;
     if (t.dataset.calc === 'fx') UI.calcFx = t.value;
+    /* SOP：勾选或下拉改变时重渲染（刷新完成度与计算）；文本/数字靠 blur 更新 */
+    if (t.dataset.sopCheck !== undefined || t.tagName === 'SELECT' && t.dataset.sopField !== undefined) {
+      renderAll();
+    }
+    if (t.dataset.sopField !== undefined && t.tagName === 'INPUT') {
+      clearTimeout(t._sopBlurT);
+      t._sopBlurT = setTimeout(function () {
+        if (UI.tab === 'sop') renderAll();
+      }, 600);
+    }
     if (t.dataset.ppc === 'target') UI.ppcTarget = t.value;
     if (t.id === 'importFile') importJSON(t.files && t.files[0]);
     if (t.id === 'wbImportFile') {
