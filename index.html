@@ -972,7 +972,13 @@ button:disabled{cursor:default;opacity:.6}
         checks: [ { k: 'g01', l: '推广思路' }, { k: 'g02', l: '未达目标备选方案' } ],
         fields: [ { k: 'idea', l: '推广思路', t: 'textarea' }, { k: 'backup', l: '备选方案', t: 'textarea' } ] },
       { id: 'g_stock', title: '2 库存监控', type: 'mixed',
-        table: { key: 'stock', cols: [ { k: 'range', l: '库龄区间' }, { k: 'action', l: '动作' }, { k: 'threshold', l: '阈值/备注' } ] },
+        table: { key: 'stock', cols: [ { k: 'range', l: '库龄区间' }, { k: 'action', l: '动作' }, { k: 'threshold', l: '阈值/备注' } ],
+          defaults: [
+            { range: '0-30天', action: '补货', threshold: '' }, { range: '31-60天', action: '补货', threshold: '' },
+            { range: '61-90天', action: '关注', threshold: '' }, { range: '91-180天', action: '控货', threshold: '' },
+            { range: '181-270天', action: '清仓', threshold: '' }, { range: '271-330天', action: '清仓', threshold: '' },
+            { range: '331-365天', action: '清仓', threshold: '' }, { range: '365天以上', action: '重启链接', threshold: '' }
+          ] },
         fields: [ { k: 'stockNote', l: '补货/清仓/重启计划', t: 'textarea' } ] },
       { id: 'g_target', title: '3 动态追踪与数据目标', type: 'mixed',
         table: { key: 'track', cols: [
@@ -1146,11 +1152,84 @@ button:disabled{cursor:default;opacity:.6}
     return { ok: true, msg: '已带入核算汇率与' + (sku ? '该 SKU 成本' : '成本（填写 SKU 后可精确带入）') };
   }
 
+  /* ---- 导出：Markdown ---- */
+  function escMd(s) { return String(s == null ? '' : s).replace(/\|/g, '\\|').replace(/\n/g, ' '); }
+  function toMarkdown(project) {
+    var L = ['# ' + (project.name || '未命名新品') + ' · 新品推广 SOP', ''];
+    L.push('- ASIN：' + (project.asin || '未填') + ' · SKU：' + (project.sku || '未填') + ' · 类目：' + (project.category || '未填'));
+    L.push('- 总进度：' + overall(project) + '% · 导出时间：' + new Date().toLocaleString('zh-CN'));
+    L.push('');
+    STAGE_KEYS.forEach(function (key, si) {
+      var stage = C.STAGES.filter(function (s) { return s.k === key; })[0] || {};
+      var schema = C.SCHEMA[key] || [], st = project.stages[key] || emptyStage();
+      var pr = progress(project, key), vals = compute(project, key);
+      L.push('## ' + (si + 1) + '. ' + stage.l + '（' + pr.done + '/' + pr.total + ' · ' + pr.pct + '%）');
+      L.push('');
+      schema.forEach(function (sec) {
+        L.push('### ' + sec.title);
+        (sec.checks || []).forEach(function (c) { L.push('- [' + (st.checks[c.k] ? 'x' : ' ') + '] ' + c.l); });
+        if (sec.check) L.push('- [' + (st.checks[sec.check.k] ? 'x' : ' ') + '] ' + sec.check.l);
+        (sec.fields || []).forEach(function (f) {
+          var v = st.fields[f.k];
+          if (v !== undefined && v !== '') L.push('- ' + f.l + '：' + v);
+        });
+        if (sec.table) {
+          var rows = st.tables[sec.table.key] || [];
+          if (rows.length) {
+            L.push('');
+            L.push('| ' + sec.table.cols.map(function (c) { return c.l; }).join(' | ') + ' |');
+            L.push('| ' + sec.table.cols.map(function () { return '---'; }).join(' | ') + ' |');
+            rows.forEach(function (r) {
+              L.push('| ' + sec.table.cols.map(function (c) { return escMd(r[c.k]); }).join(' | ') + ' |');
+            });
+            L.push('');
+          }
+        }
+        if (sec.derived) {
+          var ds = (sec.derived || []).filter(function (k) { return vals[k] !== null && vals[k] !== undefined; })
+            .map(function (k) { return (C.DERIVED_LABELS[k] || k) + '：' + vals[k]; });
+          if (ds.length) { L.push('- 测算：' + ds.join('；')); }
+        }
+        if (sec.type === 'notes' && st.notes) { L.push(''); L.push(st.notes); }
+        L.push('');
+      });
+    });
+    L.push('---');
+    L.push('由亚马逊工作台导出 · 数据只存本机');
+    return L.join('\n');
+  }
+
+  /* ---- 导出：打印友好 HTML ---- */
+  function toPrintHTML(project) {
+    var md = toMarkdown(project), lines = md.split('\n');
+    var body = lines.map(function (line) {
+      if (/^# /.test(line)) return '<h1>' + line.slice(2) + '</h1>';
+      if (/^## /.test(line)) return '<h2>' + line.slice(3) + '</h2>';
+      if (/^### /.test(line)) return '<h3>' + line.slice(4) + '</h3>';
+      if (/^\| /.test(line)) return '<div class="table-line">' + line + '</div>';
+      if (/^- \[[ x]\] /.test(line)) {
+        var done = line.indexOf('[x]') >= 0;
+        return '<div class="check ' + (done ? 'done' : '') + '">' + line.slice(6) + '</div>';
+      }
+      if (/^- /.test(line)) return '<div class="li">' + line.slice(2) + '</div>';
+      if (line === '---') return '<hr>';
+      return line ? '<p>' + line + '</p>' : '';
+    }).join('');
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>' +
+      (project.name || 'SOP') + '</title><style>' +
+      '@page{margin:16mm}body{font:12px/1.6 -apple-system,"PingFang SC",sans-serif;color:#222;max-width:800px;margin:0 auto;padding:20px}' +
+      'h1{font-size:20px;margin:0 0 12px}h2{font-size:15px;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #ccc;page-break-after:avoid}' +
+      'h3{font-size:13px;margin:12px 0 4px;page-break-after:avoid}p,.li,.check{margin:2px 0}.check{padding-left:18px;position:relative}.check:before{content:"□";position:absolute;left:0}.check.done:before{content:"☑"}' +
+      '.table-line{font-family:monospace;font-size:11px;white-space:pre-wrap}hr{border:0;border-top:1px solid #eee;margin:16px 0}' +
+      '</style></head><body>' + body + '<div style="margin-top:24px"><button onclick="window.print()" style="padding:8px 16px">打印 / 另存为 PDF</button></div></body></html>';
+  }
+
   global.SOPEngine = {
     uid: uid, blankProject: blankProject, normalize: normalize,
     progress: progress, overall: overall, compute: compute,
     computeSimulate: computeSimulate, computeTrack: computeTrack,
-    importFromProfit: importFromProfit, STAGE_KEYS: STAGE_KEYS
+    importFromProfit: importFromProfit, toMarkdown: toMarkdown, toPrintHTML: toPrintHTML,
+    STAGE_KEYS: STAGE_KEYS
   };
 })(window);
 
@@ -1278,7 +1357,8 @@ button:disabled{cursor:default;opacity:.6}
   /* 通用：表格 */
   function table(sec, st) {
     var t = sec.table; if (!t) return '';
-    var rows = st.tables[t.key] || [];
+    var rows = st.tables[t.key];
+    if (!rows || !rows.length) rows = t.defaults ? t.defaults.map(function (d) { return Object.assign({}, d); }) : [];
     var h = '<div class="tbl-wrap sop-table"><table class="tbl"><thead><tr>' +
       t.cols.map(function (c) { return '<th>' + esc(c.l) + '</th>'; }).join('') + '<th></th></tr></thead><tbody>';
     rows.forEach(function (r, i) {
@@ -1338,13 +1418,23 @@ button:disabled{cursor:default;opacity:.6}
       '<div class="empty">该阶段的完整表单将在第二步上线。结构已在准备中，数据模型已就绪。</div></div>';
   }
 
+  /* 导出工具条 */
+  function exportBar(p) {
+    return '<div class="card"><div class="card-title">导出这份 SOP</div>' +
+      '<div class="card-sub">把当前项目五个阶段的清单、录入、测算整理成文档。导出只在本机生成，不上传。</div>' +
+      '<div class="pill-row"><button class="btn btn-sm" data-sop="export-json">导出 JSON</button>' +
+      '<button class="btn btn-sm" data-sop="export-md">导出 Markdown</button>' +
+      '<button class="btn btn-sm" data-sop="export-print">打印 / 存为 PDF</button></div></div>';
+  }
+
   function page(db, activeId, stage, newOpen, editOpen) {
     var p = db.projects.filter(function (x) { return x.id === activeId; })[0];
     var h = '<div class="page-head"><h1>项目</h1><p>新品推广全链路 · 市场调研 → 类目细分 → 模拟预估 → 链接准备 → 推广计划</p></div>';
     h += projects(db, activeId) + newForm(newOpen);
     if (!p) return h;
     h += stages(p, stage) + projBar(p, editOpen);
-    h += (stage === 'research' || stage === 'simulate') ? stageContent(p, stage) : comingSoon(stage);
+    h += stageContent(p, stage);
+    h += exportBar(p);
     return h;
   }
 
@@ -2271,9 +2361,12 @@ const CONTENT = {
       const a = window.PPCEngine.analyzeWeek(UI.ppcRows, target);
       const d = ppcLoad();
       const wk = window.PPCEngine.weekKey(Date.now());
+      /* 若有活跃项目，归档时绑定（可后改） */
+      const bindP = sopCurrent().project;
       const entry = {
         week: wk, uploadedAt: Date.now(), reportName: UI.ppcName,
-        targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount
+        targetAcos: target, summary: a.summary, rows: a.rows, advice: a.advice, negCount: a.negCount,
+        projectId: bindP ? bindP.id : undefined, projectName: bindP ? bindP.name : undefined
       };
       /* 同一周覆盖，不同周追加 */
       const at = d.weeks.findIndex(function (w) { return w.week === wk; });
@@ -2317,7 +2410,7 @@ const CONTENT = {
 
     /* 汇总 */
     const s = view.summary;
-    h += '<div class="section-title">' + esc(view.week) + ' 汇总 <small>目标 ACOS ' + esc(view.targetAcos) + '%' + (view.reportName ? ' · ' + esc(view.reportName) : '') + '</small></div>';
+    h += '<div class="section-title">' + esc(view.week) + ' 汇总 <small>目标 ACOS ' + esc(view.targetAcos) + '%' + (view.projectName ? ' · 项目 ' + esc(view.projectName) : '') + (view.reportName ? ' · ' + esc(view.reportName) : '') + '</small></div>';
     h += metrics([
       { label: '花费', value: fmtMoney(s.spend), small: s.clicks + ' 次点击' },
       { label: '销售额', value: fmtMoney(s.sales), small: s.orders + ' 单' },
@@ -2518,6 +2611,23 @@ const CONTENT = {
           { label: '非订单费', value: fmtMoney(s.otherUsd) },
           { label: '全口径到手', value: '¥' + Math.round(s.profitCny).toLocaleString('zh-CN') }
         ]);
+      /* 按项目看：活跃项目绑定 SKU 的单件真实利润 */
+      const actives = sopLoad().projects.filter(function (x) { return x.status !== 'archived' && x.sku; });
+      const skuRows = (p.bySku || []);
+      const hits = actives.map(function (pj) {
+        const row = skuRows.filter(function (r) { return r.sku === pj.sku; })[0];
+        return row ? { name: pj.name, sku: pj.sku, row: row } : null;
+      }).filter(Boolean);
+      if (hits.length) {
+        h += '<div class="card" style="margin-top:12px;border-style:dashed"><div class="card-title">按项目看 <small>绑定 SKU 的真实单件利润</small></div><div class="list">';
+        hits.forEach(function (x) {
+          const pp = x.row.profitPerUnit;
+          h += '<div class="row"><span class="dot green"></span><span class="row-text"><b>' + esc(x.name) + '</b> <span class="mono">' + esc(x.sku) + '</span>' +
+            '<br><span class="mins">本期 ' + x.row.units + ' 件 · 结算 ' + fmtMoney(x.row.settleUsd) + '</span></span>' +
+            '<span class="tag ' + (pp !== null && pp > 0 ? 'green' : 'gray') + '">单件 ' + (pp === null ? '—' : '¥' + pp) + '</span></div>';
+        });
+        h += '</div></div>';
+      }
     }
     /* 核算口径说明（可折叠） */
     h += '<div class="collapse" style="margin-top:12px"><button class="collapse-head" data-act="calc-formula-toggle">' +
@@ -2758,6 +2868,21 @@ const CONTENT = {
       const body = m ? t.slice(m[0].length) : t;
       html += '<div class="report-section"><h3>' + titles[i] + '</h3><pre class="report-pre">' + esc(body) + '</pre></div>';
     });
+    /* 项目进度附录（可选，不进五段、不影响复制文本） */
+    const sopDb = sopLoad(), actives = sopDb.projects.filter(function (p) { return p.status !== 'archived'; });
+    if (actives.length) {
+      html += '<div class="card" style="margin-top:14px"><div class="card-title">附：新品项目进度 <small>不计入上面五段</small></div><div class="list">';
+      actives.forEach(function (p) {
+        var stg = (window.SOP_CONTENT.STAGES.filter(function (s) { return s.k === p.currentStage; })[0] || {}).l || '';
+        var each = window.SOP_CONTENT.STAGES.map(function (s) {
+          var pr = window.SOPEngine.progress(p, s.k);
+          return s.l + ' ' + pr.pct + '%';
+        }).join(' · ');
+        html += '<div class="row"><span class="row-text"><b>' + esc(p.name) + '</b><br><span class="mins">' + esc(each) + '</span></span>' +
+          '<span class="tag green">' + esc(stg) + ' · ' + window.SOPEngine.overall(p) + '%</span></div>';
+      });
+      html += '</div><div class="hint">在项目页可导出完整 SOP 文档。这里是进度快照，不是新的一段周报。</div></div>';
+    }
     html += '<div class="hint">复制出去发给同事或学伴，就能收到一句真人反馈。结果只存本机，不上传。</div>';
     /* 设置 */
     html += '<div class="collapse"><button class="collapse-head" data-act="toggle-settings">' +
@@ -3098,15 +3223,30 @@ const CONTENT = {
       });
       UI.sopProject = ''; toast('项目已归档'); return;
     }
-    if (a === 'export-json') {
+    if (a === 'export-json' || a === 'export-md' || a === 'export-print') {
       var pj = sopCurrent().project;
       if (!pj) { toast('先建项目'); return; }
-      var blob = new Blob([JSON.stringify(pj, null, 2)], { type: 'application/json' });
+      if (a === 'export-print') {
+        var html = window.SOPEngine.toPrintHTML(pj);
+        var w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); toast('已打开打印页，可另存为 PDF'); }
+        else {
+          var u = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+          var lk = document.createElement('a'); lk.href = u; lk.download = 'SOP-' + pj.name + '.html';
+          document.body.appendChild(lk); lk.click(); document.body.removeChild(lk); URL.revokeObjectURL(u);
+          toast('打印页已下载（弹出被拦截）');
+        }
+        return;
+      }
+      var text = a === 'export-json' ? JSON.stringify(pj, null, 2) : window.SOPEngine.toMarkdown(pj);
+      var type = a === 'export-json' ? 'application/json' : 'text/markdown';
+      var ext = a === 'export-json' ? 'json' : 'md';
+      var blob = new Blob([text], { type: type });
       var url = URL.createObjectURL(blob), link = document.createElement('a');
-      link.href = url; link.download = 'SOP-' + pj.name + '-' + today() + '.json';
+      link.href = url; link.download = 'SOP-' + pj.name + '-' + today() + '.' + ext;
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      toast('项目 JSON 已导出');
+      toast(a === 'export-json' ? '项目 JSON 已导出' : 'Markdown 已导出');
       return;
     }
   });
