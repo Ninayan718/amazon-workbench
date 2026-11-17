@@ -1240,7 +1240,8 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
         var s = p.stages[k] || {};
         p.stages[k] = {
           checks: s.checks || {}, fields: s.fields || {}, tables: s.tables || {},
-          notes: s.notes || '', updatedAt: s.updatedAt || 0
+          notes: s.notes || '', updatedAt: s.updatedAt || 0,
+          competitors: s.competitors || undefined
         };
       });
       if (!p.id) p.id = uid();
@@ -1423,6 +1424,281 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
   };
 })(window);
 
+/* 竞品分析引擎（纯前端、零依赖）
+   解析按模板粘贴的竞品文本，规则打底做分层/词频/差评归类/六块输出；AI 部分由 app.js 调用。 */
+(function (global) {
+  "use strict";
+
+  /* ---------- 解析：从粘贴文本提取字段块 ---------- */
+  var FIELD_ALIASES = {
+    asin: ['asin', 'ASIN', '链接'],
+    price: ['价格', '售价', 'price'],
+    coupon: ['coupon', '优惠', '折扣'],
+    rating: ['评分', '星级', 'rating'],
+    reviews: ['评论数', '评论', 'review'],
+    title: ['标题', 'title'],
+    bullets: ['五点', 'bullet', '要点'],
+    image: ['主图描述', '主图', '图片描述'],
+    aplus: ['A+', 'a+', '图文版'],
+    bad: ['差评', '1-3星', '差评摘录']
+  };
+  var MY_ALIASES = {
+    price: ['售价', '价格'], position: ['定位', '竞争定位'], problem: ['最大问题', '当前问题', '问题'],
+    title: ['标题'], bullets: ['五点'], image: ['主图', '主图描述'],
+    rating: ['评分'], reviews: ['评论数', '评论'], aplus: ['A+', 'a+'], budget: ['预算约束', '预算']
+  };
+
+  function norm(s) { return String(s == null ? '' : s).replace(/^\s+|\s+$/g, '').toLowerCase(); }
+  function num(v) { var m = String(v == null ? '' : v).match(/-?\d+\.?\d*/); return m ? parseFloat(m[0]) : 0; }
+  function r1(n) { return Math.round(n * 10) / 10; }
+
+  /* 找一行里的 "键：值"，返回 {key, value}；支持中文冒号 */
+  function lineKV(line) {
+    var m = line.match(/^\s*([^:：]{1,20})\s*[:：]\s*(.*)$/);
+    return m ? { key: m[1].trim(), value: m[2].trim() } : null;
+  }
+  function matchField(label, aliases) {
+    var n = norm(label);
+    for (var i = 0; i < aliases.length; i++) {
+      var a = norm(aliases[i]);
+      if (n === a || n.indexOf(a) === 0) return true;
+    }
+    return false;
+  }
+
+  /* 解析整段文本 */
+  function parse(text) {
+    text = String(text || '').replace(/\r/g, '').replace(/^\uFEFF/, '');
+    var lines = text.split('\n');
+    var me = {}, comps = [], cur = null, section = '', bufKey = '';
+    function flushBuf() {
+      if (!cur || !bufKey) return;
+      cur[bufKey] = (cur[bufKey] ? cur[bufKey] + '\n' : '') + (cur._buf || '').trim();
+      cur._buf = ''; bufKey = '';
+    }
+    lines.forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) return;
+      /* 块头：【我的产品】/【我的Listing】/【竞品1】/竞品2: */
+      var h = line.match(/^[【\[]?\s*(我的(产品|listing|店铺)?|竞品\s*\d+|competitor\s*\d+)\s*[】\]]?\s*[:：]?$/i);
+      if (h) {
+        flushBuf();
+        var tag = norm(h[1]);
+        if (tag.indexOf('我的') === 0) { section = 'me'; cur = me; }
+        else { section = 'comp'; cur = { name: h[1].trim() }; comps.push(cur); }
+        return;
+      }
+      var kv = lineKV(line);
+      if (kv && cur) {
+        flushBuf();
+        if (section === 'me') {
+          var mk = null;
+          for (var k in MY_ALIASES) if (matchField(kv.key, MY_ALIASES[k])) { mk = k; break; }
+          if (mk) { bufKey = mk; cur._buf = kv.value; return; }
+        } else {
+          var fk = null;
+          for (var f in FIELD_ALIASES) if (matchField(kv.key, FIELD_ALIASES[f])) { fk = f; break; }
+          if (fk) { bufKey = fk; cur._buf = kv.value; return; }
+        }
+      }
+      /* 续行：并入上一个字段 */
+      if (cur && bufKey) cur._buf = (cur._buf || '') + '\n' + line;
+    });
+    flushBuf();
+    /* 归一化我的字段 */
+    var mine = {
+      price: num(me.price), position: (me.position || '').trim(), problem: (me.problem || '').trim(),
+      title: (me.title || '').trim(), bullets: (me.bullets || '').trim(), image: (me.image || '').trim(),
+      rating: num(me.rating), reviews: num(me.reviews), aplus: (me.aplus || '').trim(), budget: (me.budget || '').trim()
+    };
+    var cleaned = comps.filter(function (c) { return c.title || c.asin || c.price || c.bullets; }).map(function (c, i) {
+      return {
+        idx: i + 1, name: c.name || ('竞品' + (i + 1)),
+        asin: (c.asin || '').trim(), price: num(c.price), coupon: (c.coupon || '').trim(),
+        rating: num(c.rating), reviews: num(c.reviews),
+        title: (c.title || '').trim(), bullets: (c.bullets || '').trim(),
+        image: (c.image || '').trim(), aplus: (c.aplus || '').trim(), bad: (c.bad || '').trim()
+      };
+    });
+    return { mine: mine, comps: cleaned };
+  }
+
+  /* ---------- 词频与结构分析 ---------- */
+  var STOP = ('a an the and or for with of to in on at is are be this that it its from by as not no you your our we all more most very can will just get one two out up down over under new use used using has have had do does did what when where which who how why') .split(/\s+/);
+  var FEATURE_WORDS = ['waterproof','usb','rechargeable','battery','portable','adjustable','silent','durable','silicone','storage','travel','mini','large','automatic','interactive','led','remote','app','timer','memory','soft','safe','bpa','washable'];
+  function tokens(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/)
+      .filter(function (w) { return w.length >= 3 && STOP.indexOf(w) < 0; });
+  }
+  function freqMap(list) {
+    var m = {};
+    list.forEach(function (w) { m[w] = (m[w] || 0) + 1; });
+    return m;
+  }
+  function topWords(map, n) {
+    return Object.keys(map).sort(function (a, b) { return map[b] - map[a] || a.localeCompare(b); }).slice(0, n || 12)
+      .map(function (w) { return { w: w, n: map[w] }; });
+  }
+  /* 竞品标题高频共性词：出现在≥40%竞品标题里的词 */
+  function commonWords(comps) {
+    if (!comps.length) return [];
+    var per = comps.map(function (c) { var m = {}; tokens(c.title).forEach(function (w) { m[w] = 1; }); return m; });
+    var m = {};
+    per.forEach(function (pm) { Object.keys(pm).forEach(function (w) { m[w] = (m[w] || 0) + 1; }); });
+    var need = Math.max(1, Math.ceil(comps.length * 0.4));
+    return Object.keys(m).filter(function (w) { return m[w] >= need; })
+      .sort(function (a, b) { return m[b] - m[a] || a.localeCompare(b); })
+      .map(function (w) { return { w: w, n: m[w] }; });
+  }
+  /* 五点结构覆盖：功能/材质/场景/易用性/售后 */
+  var STRUCT = {
+    '功能': ['function','feature','works','mode','speed','power','automatic','timer','adjustable'],
+    '材质': ['material','made','silicone','plastic','bpa','durable','safe','quality','stainless'],
+    '场景': ['home','travel','outdoor','office','kitchen','car','bed','bath','gift','kids','pet'],
+    '易用性': ['easy','simple','convenient','quick','one hand','clean','washable','install','use'],
+    '售后': ['warranty','guarantee','support','service','return','refund','contact','replacement']
+  };
+  function structCover(text) {
+    var t = String(text || '').toLowerCase(), out = {};
+    for (var k in STRUCT) out[k] = STRUCT[k].some(function (w) { return t.indexOf(w) >= 0; });
+    return out;
+  }
+  /* 差评关键词归类 */
+  var BAD_CATS = {
+    '易坏/耐用性': ['broke','broken','stopped','fail','cheap','flimsy','lasted','died','crack'],
+    '尺寸/不符': ['small','big','size','smaller','larger','description','not as','picture'],
+    '难用/说明': ['instructions','confusing','hard to','difficult','setup','figure out'],
+    '电池/充电': ['battery','charge','charging','power','die','cord'],
+    '噪音': ['loud','noise','noisy','sound'],
+    '清洁/卫生': ['clean','dirty','smell','mold','wash'],
+    '物流/包装': ['shipping','package','arrived','damaged','box']
+  };
+  function badCats(text) {
+    var t = String(text || '').toLowerCase(), out = [];
+    for (var k in BAD_CATS) {
+      var hits = BAD_CATS[k].filter(function (w) { return t.indexOf(w) >= 0; });
+      if (hits.length) out.push({ cat: k, hits: hits });
+    }
+    return out;
+  }
+
+  /* ---------- 规则分析：竞品分层 ---------- */
+  function tier(comps, mine) {
+    return comps.map(function (c) {
+      var ratio = mine.reviews ? c.reviews / mine.reviews : null;
+      var priceDev = mine.price ? Math.abs(c.price - mine.price) / mine.price : null;
+      var t, value, why;
+      if (ratio !== null && ratio >= 10) { t = '头部'; value = '中'; why = '评论数是我 ' + r1(ratio) + ' 倍，只拆文案结构不硬拼'; }
+      else if (c.rating && mine.rating && c.rating < mine.rating - 0.3) { t = '薄弱'; value = '低'; why = '评分低于我，可用商品定向抢流量，不进Listing对比'; }
+      else if (priceDev !== null && priceDev > 0.2) { t = '头部/非同类'; value = '低'; why = '价格偏离我 ' + Math.round(priceDev * 100) + '%，价格带不同'; }
+      else { t = '直接'; value = '高'; why = '价格带接近、评论量级可比，重点逐项对比'; }
+      return Object.assign({}, c, { tier: t, value: value, why: why, reviewRatio: ratio, priceDev: priceDev });
+    });
+  }
+
+  /* ---------- 六块规则输出 ---------- */
+  function analyze(data) {
+    var mine = data.mine, comps = data.comps;
+    var gaps = [];
+    if (!comps.length) gaps.push('没有识别到竞品块。请按模板至少提供 3 个竞品。');
+    comps.forEach(function (c) {
+      var miss = [];
+      if (!c.image) miss.push('主图描述');
+      if (!c.bad) miss.push('差评摘录');
+      if (!c.title) miss.push('标题');
+      if (miss.length) gaps.push('「' + c.name + '」缺：' + miss.join('、') + '。缺主图描述无法判断第一层，缺差评无法归类痛点。');
+    });
+    if (!mine.title) gaps.push('我的Listing缺标题，无法做标题词缺失对比。');
+    if (!mine.image) gaps.push('我的Listing缺主图描述，无法判断我卡在漏斗哪一层（主图）。');
+    if (!mine.reviews) gaps.push('我的评论数未提供，竞品分层只能按价格带粗判。');
+
+    var tiers = tier(comps, mine);
+    var directs = tiers.filter(function (c) { return c.tier === '直接'; });
+    var common = commonWords(directs.length ? directs : comps);
+    var myTitleWords = {}; tokens(mine.title).forEach(function (w) { myTitleWords[w] = 1; });
+    var missingWords = common.filter(function (x) { return !myTitleWords[x.w]; });
+    var myStruct = structCover(mine.bullets);
+    var compStructs = comps.map(function (c) { return structCover(c.bullets); });
+    var structGaps = [];
+    for (var k in STRUCT) {
+      var compHas = compStructs.filter(function (s) { return s[k]; }).length;
+      if (compHas >= Math.max(1, Math.ceil(comps.length * 0.5)) && !myStruct[k]) structGaps.push(k);
+    }
+    /* 差评痛点归类（所有竞品差评汇总） */
+    var badAll = {}, badSamples = {};
+    comps.forEach(function (c) {
+      badCats(c.bad).forEach(function (r) {
+        badAll[r.cat] = (badAll[r.cat] || 0) + 1;
+        if (!badSamples[r.cat]) badSamples[r.cat] = c.bad.split(/[\n；;]/)[0].slice(0, 60);
+      });
+    });
+    var badTop = Object.keys(badAll).sort(function (a, b) { return badAll[b] - badAll[a]; }).slice(0, 5)
+      .map(function (k) { return { cat: k, n: badAll[k], sample: badSamples[k] || '' }; });
+    /* 价格偏离预警：只用直接竞品做基准，避免头部高价拉高均值 */
+    var baseComps = directs.length ? directs : comps.filter(function (c) { return c.reviews < (mine.reviews || Infinity) * 10; });
+    if (!baseComps.length) baseComps = comps;
+    var prices = baseComps.map(function (c) { return c.price; }).filter(function (p) { return p > 0; });
+    var avgPrice = prices.length ? prices.reduce(function (a, b) { return a + b; }, 0) / prices.length : 0;
+    var priceAlerts = comps.filter(function (c) { return c.price && avgPrice && Math.abs(c.price - avgPrice) / avgPrice >= 0.15; })
+      .map(function (c) { return c.name + ' $' + c.price + '（偏离直接竞品均值' + Math.round(Math.abs(c.price - avgPrice) / avgPrice * 100) + '%）'; });
+    /* 漏斗判断（规则粗判） */
+    var funnel = '数据不足';
+    if (mine.image && mine.title) {
+      if (!mine.image.match(/对比|尺寸|特写|场景|参照|在手|大小/)) funnel = '主图层（缺具体视觉信号）';
+      else if (missingWords.length >= 3) funnel = '标题层（缺 ' + missingWords.length + ' 个竞品共性词）';
+      else if (structGaps.length >= 2) funnel = '五点层（缺 ' + structGaps.join('、') + ' 结构）';
+      else funnel = '信任层（评分/评论或A+弱）';
+    }
+
+    /* 六块 */
+    var digest = [
+      { k: '漏斗定位', v: '我的Listing最可能卡在：' + funnel + (funnel === '数据不足' ? '（需补主图描述）' : '') },
+      { k: '对标对象', v: directs.length ? ('最值得对标：' + directs[0].name + '（' + directs[0].why + '）') : '没有可直接对标竞品，先补价格带±20%的同类' },
+      { k: '最大杠杆', v: missingWords.length ? ('标题缺 ' + missingWords.slice(0, 4).map(function (x) { return x.w; }).join('、') + ' 等竞品共性词，可低成本补齐') : (badTop.length ? ('差评高频痛点「' + badTop[0].cat + '」，可做视觉/文案回应') : '数据不足，需补主图与差评') },
+      { k: '不建议跟', v: priceAlerts.length ? ('价格异常：' + priceAlerts.join('；') + '。只预警，不跟着降价') : '竞品价格都在正常带内，不把价格当主要杠杆' },
+      { k: '数据缺口', v: gaps.length + ' 项待补（见第六块），补完再定P0' }
+    ];
+    var actions = [];
+    if (mine.image) {
+      actions.push({ pri: 'P0', layer: '主图', find: '我的主图描述：' + mine.image.slice(0, 50), mine: mine.image.slice(0, 40), gap: '是否一眼读到核心购买理由+具体视觉信号', act: 'A/B 测试单一变量：加一个参照物/尺寸对比或附件特写', verify: '14天，CTR升且CVR不降才保留', miss: '若主图描述为空需补充' });
+    }
+    missingWords.slice(0, 6).forEach(function (x) {
+      actions.push({ pri: 'P1', layer: '标题', find: '竞品高频词 ' + x.w + '（' + x.n + '个竞品有）', mine: mine.title ? '我的标题未含此词' : '数据不足', gap: '缺流量入口词', act: '标题自然嵌入 ' + x.w + '（不堆砌，保留可读）', verify: '看自然排名/曝光是否上升', miss: '' });
+    });
+    structGaps.forEach(function (k) {
+      actions.push({ pri: 'P1', layer: '五点', find: '≥半数竞品在' + k + '层有承诺', mine: '我的五点缺' + k + '结构', gap: '同问题竞品说得更具体', act: '在第' + (structGaps.indexOf(k) + 1) + '条五点补' + k + '的具体证据', verify: '看CVR是否提升', miss: '' });
+    });
+    badTop.forEach(function (b) {
+      actions.push({ pri: 'P1', layer: '差评', find: '高频痛点「' + b.cat + '」' + (b.sample ? '（如："' + b.sample + '"）' : ''), mine: '我的Listing是否正面回应：待确认', gap: '高频但无人正面回应', act: '把' + b.cat + '痛点翻成五点具体证据或A+对比说明', verify: '看CVR/差评率', miss: '需差评原文补充' });
+    });
+    priceAlerts.forEach(function (p) {
+      actions.push({ pri: 'P2', layer: '价格', find: p, mine: '我 $' + mine.price, gap: '偏离均值≥15%', act: '只做异常预警，不跟着调价', verify: '持续观察，不动', miss: '' });
+    });
+    var checklists = {
+      ab: mine.image ? ('变量：主图加一个具体视觉信号（尺寸对比/附件特写/场景参照）\n对照：当前主图\n周期：14天\n判定：CTR提升且CVR不下降才保留，否则回退') : '数据不足：需先提供我的主图文字描述',
+      title: missingWords.length ? missingWords.slice(0, 5).map(function (x) { return '补词：' + x.w; }).join('\n') : '数据不足：需补我的标题与竞品标题',
+      bullets: structGaps.length ? structGaps.map(function (k) { return '补' + k + '层：在第' + (structGaps.indexOf(k) + 1) + '条加具体证据'; }).join('\n') : '五点结构已覆盖，暂无必改点',
+      badTranslate: badTop.map(function (b) { return b.cat + ' → 在我的五点/A+用具体证据正面回应（如尺寸标注、材质说明、使用演示）'; }).join('\n') || '数据不足：需竞品差评原文',
+      dontFollow: (tiers.filter(function (c) { return c.tier === '头部' || c.tier === '薄弱'; }).map(function (c) { return c.name + '：' + c.why; }).join('\n') || '暂无明确不跟对象') + '\n价格异常词只预警，不跟着降价'
+    };
+    var verifyPlan = actions.filter(function (a) { return a.pri === 'P0' || a.pri === 'P1'; }).slice(0, 6)
+      .map(function (a) { return a.pri + ' ' + a.layer + '：' + a.act + '｜观察' + (/CTR/.test(a.verify) ? 'CTR/CVR' : 'CVR/自然排名') + '｜' + a.verify; });
+    if (!verifyPlan.length) verifyPlan.push('数据不足，补主图描述与竞品差评后再定测试');
+
+    return {
+      mine: mine, comps: comps, tiers: tiers, gaps: gaps, common: common, missingWords: missingWords,
+      structGaps: structGaps, badTop: badTop, priceAlerts: priceAlerts, funnel: funnel,
+      avgPrice: r1(avgPrice),
+      digest: digest, actions: actions, checklists: checklists, verifyPlan: verifyPlan
+    };
+  }
+
+  global.CompetitorsEngine = {
+    parse: parse, analyze: analyze, tier: tier, tokens: tokens, freqMap: freqMap,
+    topWords: topWords, commonWords: commonWords, structCover: structCover, badCats: badCats
+  };
+})(window);
+
 /* SOP 渲染层：返回 HTML 字符串；状态与事件由 app.js 持有。 */
 (function (global) {
   "use strict";
@@ -1572,6 +1848,63 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     return h;
   }
 
+  /* 竞品分析工具（类目细分阶段） */
+  var COMP_TEMPLATE = '【我的产品】\n售价：\n定位：\n最大问题：\n\n【我的Listing】\n标题：\n五点：\n主图描述：\n评分：\n评论数：\nA+：\n\n【竞品1】\nASIN：\n价格：\n评分：\n评论数：\n标题：\n五点：\n主图描述：\nA+：\n差评摘录：\n\n【竞品2】\n（同上复制一块，建议3-8个竞品）';
+  function compTool(p, comp) {
+    var r = comp && comp.result;
+    var h = '<div class="card"><div class="card-title">竞品对比分析 <span class="tag blue">规则打底 · 可选AI</span></div>' +
+      '<div class="card-sub">按模板粘贴我的Listing和竞品信息（标题/五点/主图文字描述/差评原文），工具自动做竞品分层、标题词频、差评痛点归类，给优化动作。缺项会标「数据不足」。</div>' +
+      '<details style="margin:8px 0"><summary class="hint" style="cursor:pointer">▸ 查看粘贴模板（点开复制）</summary>' +
+      '<textarea readonly rows="12" data-comp="template" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(COMP_TEMPLATE) + '</textarea>' +
+      '<button class="btn btn-sm" data-comp="copy-template" style="margin-top:6px">复制模板</button></details>' +
+      '<textarea data-comp="input" rows="8" placeholder="把填好的模板粘到这里…" style="width:100%;font-size:12px">' + esc((comp && comp.input) || '') + '</textarea>' +
+      '<div class="pill-row"><button class="btn btn-primary btn-sm" data-comp="run">解析并分析</button>' +
+      '<button class="btn btn-sm" data-comp="ai">AI 深度分析（需key）</button>' +
+      '<span class="spacer"></span><span class="tag gray">单变量测试 · 不烧大词 · 不堆砌</span></div></div>';
+    if (!r) return h;
+    /* 一、诊断摘要 */
+    h += '<div class="section-title">一、诊断摘要</div><div class="card"><div class="list">' +
+      r.digest.map(function (d) { return '<div class="row"><span class="dot blue"></span><span class="row-text term-row"><b>' + esc(d.k) + '</b><br><span class="mins term-wrap">' + esc(d.v) + '</span></span></div>'; }).join('') +
+      '</div></div>';
+    /* 二、竞品分层表 */
+    h += '<div class="section-title">二、竞品分层 <small>均值 $' + r.avgPrice + '</small></div>' +
+      '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>竞品</th><th>价格</th><th>评分</th><th>评论数</th><th>层级</th><th>价值</th><th>理由</th></tr></thead><tbody>';
+    r.tiers.forEach(function (t) {
+      h += '<tr><td class="mono">' + esc(t.asin || t.name) + '</td><td>$' + t.price + '</td><td>' + t.rating + '</td><td>' + t.reviews + '</td>' +
+        '<td><span class="tag ' + (t.tier === '直接' ? 'green' : t.tier === '头部' ? 'blue' : 'gray') + '">' + esc(t.tier) + '</span></td>' +
+        '<td>' + esc(t.value) + '</td><td class="mins">' + esc(t.why) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    /* 三、逐层动作表 */
+    h += '<div class="section-title">三、逐层对比与动作 <small>' + r.actions.length + ' 条</small></div>' +
+      '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr><th>优先级</th><th>漏斗层</th><th>竞品做法/痛点</th><th>我的现状</th><th>差距</th><th>具体动作</th><th>验证</th><th>补数据</th></tr></thead><tbody>';
+    r.actions.forEach(function (a) {
+      h += '<tr><td><span class="tag ' + (a.pri === 'P0' ? 'red' : a.pri === 'P1' ? 'green' : 'gray') + '">' + a.pri + '</span></td>' +
+        '<td>' + esc(a.layer) + '</td><td class="mins">' + esc(a.find) + '</td><td class="mins">' + esc(a.mine) + '</td>' +
+        '<td class="mins">' + esc(a.gap) + '</td><td class="mins">' + esc(a.act) + '</td><td class="mins">' + esc(a.verify) + '</td>' +
+        '<td class="mins">' + esc(a.miss || '—') + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    /* 四、可执行清单 */
+    h += '<div class="section-title">四、可直接执行的修改清单</div>';
+    [['1. 主图 A/B 测试', 'ab'], ['2. 标题修改点', 'title'], ['3. 五点修改点', 'bullets'], ['4. 差评痛点→Listing表达', 'badTranslate'], ['5. 不跟清单', 'dontFollow']].forEach(function (pair) {
+      h += '<div class="card"><div class="card-title">' + pair[0] + '</div><div class="hint" style="white-space:pre-wrap">' + esc(r.checklists[pair[1]] || '数据不足') + '</div></div>';
+    });
+    /* 五、验证计划 */
+    h += '<div class="section-title">五、验证与复盘计划</div><div class="card"><div class="list">' +
+      r.verifyPlan.map(function (v) { return '<div class="row"><span class="dot green"></span><span class="row-text term-row">' + esc(v) + '</span></div>'; }).join('') +
+      '</div></div>';
+    /* 六、数据缺口 */
+    h += '<div class="section-title">六、数据缺口与风险</div><div class="card"><div class="list">' +
+      (r.gaps.length ? r.gaps.map(function (g) { return '<div class="row"><span class="dot gray"></span><span class="row-text term-row">' + esc(g) + '</span></div>'; }).join('')
+        : '<div class="row"><span class="dot green"></span><span class="row-text">信息完整，无明显缺口。改标题可能影响已有排名，先小步测。</span></div>') +
+      '</div></div>';
+    if (comp && comp.aiText) {
+      h += '<div class="card"><div class="card-title">AI 深度分析</div><pre class="report-pre" style="white-space:pre-wrap">' + esc(comp.aiText) + '</pre></div>';
+    }
+    return h;
+  }
+
   /* 阶段内容 */
   function stageContent(p, stageKey) {
     var schema = C.SCHEMA[stageKey] || [], st = p.stages[stageKey];
@@ -1579,6 +1912,7 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     var pr = E.progress(p, stageKey);
     var h = '<div class="card"><div class="card-title">完成度 <span class="tag green">' + pr.done + ' / ' + pr.total + ' 项 · ' + pr.pct + '%</span></div>' +
       '<div class="bar green"><div class="bar-fill green" style="width:' + pr.pct + '%"></div></div></div>';
+    if (stageKey === 'segment') h += compTool(p, st.competitors);
 
     schema.forEach(function (sec) {
       h += '<div class="card"><div class="card-title">' + esc(sec.title) + '</div>';
@@ -3403,6 +3737,57 @@ const CONTENT = {
   function sopMutate(fn) {
     var db = sopLoad(); fn(db); sopSave(db); renderAll();
   }
+  /* 竞品分析：存/取当前项目的竞品数据 */
+  function compGet() {
+    var d = sopCurrent(), p = d.project;
+    if (!p) return null;
+    return p.stages.segment.competitors || null;
+  }
+  function compSet(fn) {
+    sopMutate(function (db) {
+      var p = db.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+      if (!p) return;
+      if (!p.stages.segment.competitors) p.stages.segment.competitors = {};
+      fn(p.stages.segment.competitors);
+      p.stages.segment.updatedAt = Date.now();
+    });
+  }
+  function compRun() {
+    var ta = view.querySelector('[data-comp="input"]');
+    if (!ta || !ta.value.trim()) { toast('先按模板粘贴竞品信息'); return; }
+    try {
+      var parsed = window.CompetitorsEngine.parse(ta.value);
+      if (!parsed.comps.length) { toast('没识别到竞品块，检查是否用了【竞品1】格式'); return; }
+      var result = window.CompetitorsEngine.analyze(parsed);
+      compSet(function (c) { c.input = ta.value; c.result = result; c.aiText = ''; });
+      toast('分析完成：' + parsed.comps.length + ' 个竞品，' + result.actions.length + ' 条动作');
+    } catch (e) { toast('竞品分析失败：' + e.message); }
+  }
+  async function compAI() {
+    var ai = DB.settings.ai;
+    if (!ai.key) { toast('先到周报页设置里填模型 key，或用规则版结果'); UI.tab = 'report'; UI.settingsOpen = true; renderAll(); return; }
+    var c = compGet();
+    if (!c || !c.input) { toast('先粘贴竞品信息并点解析'); return; }
+    UI.compBusy = true; renderAll();
+    try {
+      var base = String(ai.baseURL || '').replace(/\/+$/, '');
+      var res = await fetch(base + '/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ai.key },
+        body: JSON.stringify({ model: ai.model, temperature: 0.4, messages: [
+          { role: 'system', content: '你是一名亚马逊 Listing 优化顾问，服务对象是单干卖家：优先改点击率和转化率的杠杆点、一次只测一个变量、不推荐模仿大卖打价格战、不堆砌无用分析。缺失数据标注「数据不足」，不编造。按六块输出：一诊断摘要(5条内) 二竞品分层表 三逐层对比与动作表(P0/P1/P2+漏斗层+竞品做法+我的现状+差距+具体动作+验证+补数据) 四可执行清单(主图AB测试/标题修改点/五点修改点/差评痛点翻译/不跟清单) 五验证复盘计划 六数据缺口与风险。中文Markdown，简洁可执行。' },
+          { role: 'user', content: '以下是我的Listing和竞品信息，请按系统要求的六块输出可直接执行的优化动作：\n\n' + c.input }
+        ] })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var j = await res.json();
+      var text = (((j.choices || [])[0] || {}).message || {}).content || '';
+      if (!text.trim()) throw new Error('返回为空');
+      var finalText = text;
+      compSet(function (cc) { cc.aiText = finalText; });
+      toast('AI 深度分析已生成');
+    } catch (e) { toast('AI 调用失败：' + e.message + '（检查key/端点CORS）'); }
+    UI.compBusy = false; renderAll();
+  }
   function sopNewSave() {
     var name = (document.querySelector('[data-sop-new="name"]') || {}).value || '';
     if (!name.trim()) { toast('先填项目名'); return; }
@@ -3418,6 +3803,20 @@ const CONTENT = {
     go('sop');
     toast('项目已创建');
   }
+  /* 竞品工具事件 */
+  view.addEventListener('click', function (e) {
+    const cEl = e.target.closest('[data-comp]');
+    if (!cEl) return;
+    const a = cEl.dataset.comp;
+    if (a === 'run') { compRun(); return; }
+    if (a === 'ai') { compAI(); return; }
+    if (a === 'copy-template') {
+      var t = view.querySelector('[data-comp="template"]');
+      if (t) fallbackCopy(t);
+      return;
+    }
+  });
+
   view.addEventListener('click', function (e) {
     const sEl = e.target.closest('[data-sop]');
     if (!sEl) return;
@@ -3639,6 +4038,13 @@ const CONTENT = {
     if (e.target.dataset.calc === 'fx') UI.calcFx = e.target.value;
     if (e.target.dataset.ppc === 'target') UI.ppcTarget = e.target.value;
     if (e.target.dataset.param) UI.ppcParams[e.target.dataset.param] = e.target.value;
+    /* 竞品粘贴文本：只存不渲染，避免丢焦点 */
+    if (e.target.dataset.comp === 'input') {
+      try {
+        var d = sopLoad(), pj = d.projects.filter(function (x) { return x.id === UI.sopProject; })[0];
+        if (pj) { pj.stages.segment.competitors = pj.stages.segment.competitors || {}; pj.stages.segment.competitors.input = e.target.value; sopSave(d); }
+      } catch (err) {}
+    }
     sopWriteField(e.target);
   });
   view.addEventListener('change', function (e) {
