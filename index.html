@@ -210,6 +210,7 @@ button:disabled{cursor:default;opacity:.6}
 .tbl th{font-size:11px;color:var(--text-3);font-weight:500;background:var(--neutral)}
 .tbl .mins{white-space:normal;min-width:120px;max-width:260px}
 .tbl .term-cell{white-space:normal;word-break:break-word;min-width:150px;max-width:230px;line-height:1.45}
+.tbl .campaign-cell{white-space:normal;word-break:break-word;min-width:150px;max-width:240px;line-height:1.5;font-size:11px;color:var(--text-2)}
 .term-row{overflow:visible;text-overflow:clip;white-space:normal;word-break:break-word}
 .term-wrap{white-space:normal;word-break:break-word;display:block;margin-top:2px}
 .tbl.wide{min-width:900px}
@@ -922,6 +923,10 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
         ctr: r2(ctr), cvr: r2(cvr), cpc: r2(cpc), perConv: r2(perConv),
         match: r.sources.map(function (s) { return s.match; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join('/'),
         campaign: r.sources.map(function (s) { return s.campaign; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(' | '),
+        /* 广告活动明细：同词多活动时逐条列出活动/广告组/花费/单量，便于定位出血点在哪 */
+        campaignBrief: r.sources.map(function (s) {
+          return (s.campaign || '(未命名活动)') + ' · $' + r2(s.spend).toFixed(2) + '/' + Math.round(s.orders) + '单';
+        }).join('\n'),
         cat: cat, pri: pri, action: action, negType: negType, bid: bid, reason: reason,
         needFront: needFront, profitMismatch: profitMismatch, sources: r.sources
       };
@@ -1693,9 +1698,46 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     };
   }
 
+  /* ================= 生成可复制到外部 AI 的提示词 ================= */
+  var AI_PROMPT = [
+    '你是一名亚马逊 Listing 优化顾问，服务对象是单干卖家。我的资源有限、容错空间小，你的分析必须遵循：优先改点击率和转化率的杠杆点、一次只测一个变量、不推荐模仿大卖打价格战、不为了"看起来专业"而堆砌无用分析。',
+    '',
+    '请对我提供的竞品信息做对比分析，输出可直接执行的 Listing 优化动作。',
+    '',
+    '【分析规则】',
+    '1. 先判断竞品层级，不平均用力：直接竞品（价格带±20%、功能接近、评论量级相近）重点逐项对比；头部竞品（评论数是我10倍以上）只拆文案结构和视觉逻辑，不正面打价格战；薄弱竞品（评分更低/价格更高/常断货）不进Listing对比，只用商品定向广告抢流量。',
+    '2. 按"点击→转化→信任"漏斗逐层对比，先诊断我在哪一层输：第一层主图（缩略图能否一眼读到核心购买理由、主体占比、具体视觉信号——只基于文字描述，不猜图片）；第二层标题与五点（找竞品高频共性词=我缺的流量入口，独特词=差评痛点/差异化角度；五点按功能→材质→场景→易用性→售后拆结构）；第三层差评（按问题类型归类统计占比，找"高频但首页无人正面回应"的痛点，翻译成我的具体表达）。',
+    '3. 每条发现必须归入动作：P0主图A/B测试（单变量14天，CTR提升且CVR不降才保留）；P1标题/五点自然嵌入缺失属性或场景词（不堆砌）；P1针对高频差评痛点增加视觉或文案表达；P2价格/Coupon只做异常预警（偏离均值15%以上才处理）；不跟（单个竞品偶然调整、无法验证的动作）。',
+    '4. 单干约束：不推荐全面重写Listing，优先单变量测试；不推荐降价换销量；不推荐模仿头部大词投放或高价A+；需要额外花钱/买工具的标注成本和预期收益。',
+    '5. 数据不足就标"数据不足，需补充"，说明补什么、为什么，不要编造竞品数据或图片内容。我的定位与竞品差异大就明确"不可直接对标"。',
+    '',
+    '【输出格式】中文 Markdown，按六块顺序：',
+    '一、诊断摘要（5条内：我卡在漏斗哪层 / 最值得对标谁 / 最大杠杆点 / 哪些是噪音不跟）',
+    '二、竞品分层表（ASIN、价格、评分、评论数、层级、对比价值、理由）',
+    '三、逐层对比与动作表（优先级、漏斗层、竞品做法/差评痛点、我的现状、差距判断、具体修改动作、验证方式、是否需补数据）按优先级排序',
+    '四、可直接执行的修改清单（1主图A/B测试方案 2标题修改点 3五点修改点 4差评痛点→Listing表达翻译 5不跟清单及理由）',
+    '五、验证与复盘计划（每个P0/P1的观察指标、周期、判定标准、不达预期的排查顺序）',
+    '六、数据缺口与风险（哪些结论数据不足、哪些动作可能误伤、优先补哪些信息）',
+    '',
+    '简洁可执行，每条建议指向具体位置和具体改法，不写空话。',
+    '',
+    '【我的业务参数与竞品数据】'
+  ].join('\n');
+
+  function buildPrompt(inputText, parsed) {
+    var p = inputText || '';
+    var extra = '';
+    if (parsed && parsed.mine) {
+      extra = '\n（工具已初步结构化，供你参考，最终以原始数据为准：我的售价 $' + parsed.mine.price +
+        '，' + (parsed.mine.position || '定位未填') + '，识别到 ' + parsed.comps.length + ' 个竞品。）';
+    }
+    return AI_PROMPT + '\n' + p + extra;
+  }
+
   global.CompetitorsEngine = {
     parse: parse, analyze: analyze, tier: tier, tokens: tokens, freqMap: freqMap,
-    topWords: topWords, commonWords: commonWords, structCover: structCover, badCats: badCats
+    topWords: topWords, commonWords: commonWords, structCover: structCover, badCats: badCats,
+    buildPrompt: buildPrompt, AI_PROMPT: AI_PROMPT
   };
 })(window);
 
@@ -1859,8 +1901,13 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<button class="btn btn-sm" data-comp="copy-template" style="margin-top:6px">复制模板</button></details>' +
       '<textarea data-comp="input" rows="8" placeholder="把填好的模板粘到这里…" style="width:100%;font-size:12px">' + esc((comp && comp.input) || '') + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-primary btn-sm" data-comp="run">解析并分析</button>' +
+      '<button class="btn btn-sm" data-comp="prompt">生成AI提示词（可复制）</button>' +
       '<button class="btn btn-sm" data-comp="ai">AI 深度分析（需key）</button>' +
-      '<span class="spacer"></span><span class="tag gray">单变量测试 · 不烧大词 · 不堆砌</span></div></div>';
+      '<span class="spacer"></span><span class="tag gray">单变量测试 · 不烧大词 · 不堆砌</span></div>' +
+      (comp && comp.promptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到任意 AI 工具，如豆包 / DeepSeek / ChatGPT）：</div>' +
+        '<textarea readonly rows="10" data-comp="prompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(comp.promptText) + '</textarea>' +
+        '<div class="pill-row"><button class="btn btn-sm" data-comp="copy-prompt">复制提示词</button></div>' : '') +
+      '</div>';
     if (!r) return h;
     /* 一、诊断摘要 */
     h += '<div class="section-title">一、诊断摘要</div><div class="card"><div class="list">' +
@@ -3019,7 +3066,7 @@ const CONTENT = {
     /* 二、优先行动清单 */
     h += '<div class="section-title">二、优先行动清单 <small>P0立即止损 · P1本周收割/调价 · P2观察/测试</small></div>';
     h += '<div class="card"><div class="tbl-wrap"><table class="tbl wide"><thead><tr>' +
-      '<th>优先级</th><th>搜索词</th><th>花费</th><th>点击</th><th>单</th><th>ACOS</th><th>CVR</th><th>分类</th><th>建议动作</th><th>理由</th><th>验证</th>' +
+      '<th>优先级</th><th>搜索词</th><th>广告活动 / 花费·单</th><th>花费</th><th>点击</th><th>单</th><th>ACOS</th><th>CVR</th><th>分类</th><th>建议动作</th><th>理由</th><th>验证</th>' +
       '</tr></thead><tbody>';
     opt.items.forEach(function (x) {
       const pcolor = x.pri === 'P0' ? 'red' : x.pri === 'P1' ? 'green' : 'gray';
@@ -3027,6 +3074,7 @@ const CONTENT = {
       const flags = (x.needFront ? '需前台验证 ' : '') + (x.profitMismatch ? '⚠利润不匹配' : '');
       h += '<tr><td><span class="tag ' + pcolor + '">' + x.pri + '</span></td>' +
         '<td class="mono term-cell" title="' + esc(x.term) + '">' + esc(x.term) + '</td>' +
+        '<td class="campaign-cell" title="' + esc(x.campaign || '') + '">' + esc(x.campaignBrief || x.campaign || '—') + '</td>' +
         '<td>' + fmtMoney(x.spend) + '</td><td>' + x.clicks + '</td><td>' + x.orders + '</td>' +
         '<td>' + (x.acosInf ? '零销售' : (x.acos === null ? '—' : x.acos + '%')) + '</td>' +
         '<td>' + x.cvr + '%</td><td><span class="tag ' + ccolor + '">' + x.cat + '</span></td>' +
@@ -3810,8 +3858,19 @@ const CONTENT = {
     const a = cEl.dataset.comp;
     if (a === 'run') { compRun(); return; }
     if (a === 'ai') { compAI(); return; }
-    if (a === 'copy-template') {
-      var t = view.querySelector('[data-comp="template"]');
+    if (a === 'prompt') {
+      var ta = view.querySelector('[data-comp="input"]');
+      if (!ta || !ta.value.trim()) { toast('先按模板填入竞品信息，再生成提示词'); return; }
+      var parsed = null;
+      try { parsed = window.CompetitorsEngine.parse(ta.value); } catch (e) {}
+      var promptText = window.CompetitorsEngine.buildPrompt(ta.value, parsed);
+      compSet(function (c) { c.input = ta.value; c.promptText = promptText; });
+      toast('提示词已生成，可复制到任意 AI 工具');
+      return;
+    }
+    if (a === 'copy-prompt' || a === 'copy-template') {
+      var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]' : '[data-comp="template"]';
+      var t = view.querySelector(sel);
       if (t) fallbackCopy(t);
       return;
     }
