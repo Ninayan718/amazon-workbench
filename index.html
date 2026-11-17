@@ -209,6 +209,9 @@ button:disabled{cursor:default;opacity:.6}
 .tbl th,.tbl td{padding:6px 8px;text-align:left;border-bottom:0.5px solid var(--line);white-space:nowrap;vertical-align:top}
 .tbl th{font-size:11px;color:var(--text-3);font-weight:500;background:var(--neutral)}
 .tbl .mins{white-space:normal;min-width:120px;max-width:260px}
+.tbl .term-cell{white-space:normal;word-break:break-word;min-width:150px;max-width:230px;line-height:1.45}
+.term-row{overflow:visible;text-overflow:clip;white-space:normal;word-break:break-word}
+.term-wrap{white-space:normal;word-break:break-word;display:block;margin-top:2px}
 .tbl.wide{min-width:900px}
 textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);border-radius:var(--r-sm);padding:8px;color:var(--text);resize:vertical;line-height:1.5}
 @media (max-width:760px){
@@ -2672,11 +2675,11 @@ const CONTENT = {
       { label: '整体 CVR', value: dg.cvr + '%', small: '上限$' + dg.convCap + '/单' }
     ]);
     h += '<div class="card"><div class="list">' +
-      '<div class="row"><span class="dot red"></span><span class="row-text"><b>最大出血点</b><br><span class="mins">' +
+      '<div class="row"><span class="dot red"></span><span class="row-text term-row"><b>最大出血点</b><br><span class="mins term-wrap">' +
         (dg.bleed.length ? dg.bleed.map(function (b) { return esc(b.term) + ' $' + b.spend + '/' + b.clicks + '点击零单'; }).join('；') : '无明显大额零单出血点') + '</span></span></div>' +
-      '<div class="row"><span class="dot green"></span><span class="row-text"><b>最值得收割的赢家</b><br><span class="mins">' +
+      '<div class="row"><span class="dot green"></span><span class="row-text term-row"><b>最值得收割的赢家</b><br><span class="mins term-wrap">' +
         (dg.winner ? esc(dg.winner.term) + ' · ' + dg.winner.orders + '单 · ACOS ' + dg.winner.acos + '%' : '暂无达标赢家词') + '</span></span></div>' +
-      '<div class="row"><span class="dot blue"></span><span class="row-text"><b>预算迁移</b><br><span class="mins">从零单出血词挪 $' + opt.budgetPlan.move + ' 给达标精准词；优先处理花费前 ' + dg.considered + ' 词（共 ' + dg.totalTerms + ' 词）</span></span></div>' +
+      '<div class="row"><span class="dot blue"></span><span class="row-text term-row"><b>预算迁移</b><br><span class="mins term-wrap">从零单出血词挪 $' + opt.budgetPlan.move + ' 给达标精准词；优先处理花费前 ' + dg.considered + ' 词（共 ' + dg.totalTerms + ' 词）</span></span></div>' +
       '</div></div>';
 
     /* 二、优先行动清单 */
@@ -2689,7 +2692,7 @@ const CONTENT = {
       const ccolor = x.cat === '否定' ? 'gray' : x.cat === '收割' ? 'green' : x.cat === '放量' ? 'blue' : '';
       const flags = (x.needFront ? '需前台验证 ' : '') + (x.profitMismatch ? '⚠利润不匹配' : '');
       h += '<tr><td><span class="tag ' + pcolor + '">' + x.pri + '</span></td>' +
-        '<td class="mono" title="' + esc(x.term) + '">' + esc(x.term.slice(0, 26)) + '</td>' +
+        '<td class="mono term-cell" title="' + esc(x.term) + '">' + esc(x.term) + '</td>' +
         '<td>' + fmtMoney(x.spend) + '</td><td>' + x.clicks + '</td><td>' + x.orders + '</td>' +
         '<td>' + (x.acosInf ? '零销售' : (x.acos === null ? '—' : x.acos + '%')) + '</td>' +
         '<td>' + x.cvr + '%</td><td><span class="tag ' + ccolor + '">' + x.cat + '</span></td>' +
