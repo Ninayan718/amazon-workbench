@@ -1395,8 +1395,9 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     if (comp && (comp.input || comp.result || comp.aiText)) {
       L.push('## 附：竞品分析');
       L.push('');
+      if (comp.aiText) { L.push('### AI 深度分析', '', comp.aiText, ''); }
       if (comp.result) {
-        L.push('### 规则分析摘要');
+        L.push('### 数据底稿（规则自动计算）');
         (comp.result.digest || []).forEach(function (d) { L.push('- ' + d.k + '：' + d.v); });
         if (comp.result.actions && comp.result.actions.length) {
           L.push('');
@@ -1409,7 +1410,6 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
         L.push('');
       }
       if (comp.input) { L.push('### 粘贴的原始数据'); L.push('', '```', comp.input, '```', ''); }
-      if (comp.aiText) { L.push('### AI 深度分析', '', comp.aiText, ''); }
     }
     L.push('---');
     L.push('由亚马逊工作台导出 · 数据只存本机');
@@ -1913,8 +1913,8 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
 
   /* 竞品分析工具（类目细分阶段） */
   var COMP_TEMPLATE = '【我的产品】\n售价：\n定位：\n最大问题：\n\n【我的Listing】\n标题：\n五点：\n主图描述：\n评分：\n评论数：\nA+：\n\n【竞品1】\nASIN：\n价格：\n评分：\n评论数：\n标题：\n五点：\n主图描述：\nA+：\n差评摘录：\n\n【竞品2】\n（同上复制一块，建议3-8个竞品）';
-  function compTool(p, comp) {
-    var r = comp && comp.result;
+  function compTool(p, comp, draftOpen) {
+    var r = comp && comp.result, ai = (comp && comp.aiText) || '';
     var h = '<div class="card"><div class="card-title">竞品对比分析 <span class="tag blue">规则打底 · 可选AI</span></div>' +
       '<div class="card-sub">按模板粘贴我的Listing和竞品信息（标题/五点/主图文字描述/差评原文），工具自动做竞品分层、标题词频、差评痛点归类，给优化动作。缺项会标「数据不足」。</div>' +
       '<details style="margin:8px 0"><summary class="hint" style="cursor:pointer">▸ 查看粘贴模板（点开复制）</summary>' +
@@ -1928,14 +1928,23 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       (comp && comp.promptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到任意 AI 工具，如豆包 / DeepSeek / ChatGPT）：</div>' +
         '<textarea readonly rows="10" data-comp="prompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(comp.promptText) + '</textarea>' +
         '<div class="pill-row"><button class="btn btn-sm" data-comp="copy-prompt">复制提示词</button></div>' : '') +
-      '<div class="divider"></div>' +
-      '<div class="card-sub"><b>AI 分析结果</b>：把外部 AI（豆包/DeepSeek/ChatGPT）给出的六块分析整段粘贴到下面，点「保存」，就会留在这份竞品分析里，并随 SOP 文档一起导出。</div>' +
-      '<textarea data-comp="ai-result" rows="8" placeholder="把 AI 输出的 Markdown 分析整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.aiText) || '') + '</textarea>' +
-      '<div class="pill-row"><button class="btn btn-sm" data-comp="save-result">保存分析结果</button>' +
-      '<button class="btn btn-sm" data-comp="copy-result">复制结果</button>' +
-      (comp && comp.aiText ? '<span class="tag green">已保存 · ' + comp.aiText.length + ' 字</span>' : '') + '</div>' +
       '</div>';
+
+    /* AI 分析结果：置顶优先展示 + 可粘贴/复制 */
+    h += '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">AI 分析结果 <span class="tag ' + (ai ? 'green' : 'gray') + '">' + (ai ? ai.length + ' 字' : '待粘贴') + '</span></div>' +
+      '<div class="card-sub">外部 AI（豆包/DeepSeek/ChatGPT）给出的六块分析，整段粘贴到下面点「保存」就会留在这里，并随 SOP 文档导出。也可用上面「AI 深度分析（需key）」站内直接生成。</div>' +
+      (ai ? '<pre class="report-pre" style="white-space:pre-wrap;max-height:520px;overflow:auto">' + esc(ai) + '</pre>' : '') +
+      '<textarea data-comp="ai-result" rows="' + (ai ? 4 : 8) + '" placeholder="把 AI 输出的 Markdown 分析整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc(ai) + '</textarea>' +
+      '<div class="pill-row"><button class="btn btn-sm" data-comp="save-result">保存分析结果</button>' +
+      '<button class="btn btn-sm" data-comp="copy-result">复制结果</button></div></div>';
+
     if (!r) return h;
+    /* 规则数据底稿：默认折叠，外面留概要 */
+    var tiers = { head: 0, direct: 0, weak: 0 };
+    r.tiers.forEach(function (x) { if (x.tier === '头部') tiers.head++; else if (x.tier === '直接') tiers.direct++; else tiers.weak++; });
+    var brief = '数据底稿（规则自动计算）：' + r.tiers.length + ' 个竞品 · 直接 ' + tiers.direct + ' / 头部 ' + tiers.head + ' / 薄弱 ' + tiers.weak +
+      ' · 缺 ' + r.missingWords.length + ' 个流量词 · ' + r.actions.length + ' 条动作';
+    h += '<details' + (draftOpen ? ' open' : '') + ' style="margin:12px 0"><summary class="hint" style="cursor:pointer;padding:8px 0">▸ ' + esc(brief) + '（点开看明细）</summary>';
     /* 一、诊断摘要 */
     h += '<div class="section-title">一、诊断摘要</div><div class="card"><div class="list">' +
       r.digest.map(function (d) { return '<div class="row"><span class="dot blue"></span><span class="row-text term-row"><b>' + esc(d.k) + '</b><br><span class="mins term-wrap">' + esc(d.v) + '</span></span></div>'; }).join('') +
@@ -1973,17 +1982,18 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       (r.gaps.length ? r.gaps.map(function (g) { return '<div class="row"><span class="dot gray"></span><span class="row-text term-row">' + esc(g) + '</span></div>'; }).join('')
         : '<div class="row"><span class="dot green"></span><span class="row-text">信息完整，无明显缺口。改标题可能影响已有排名，先小步测。</span></div>') +
       '</div></div>';
+    h += '</details>';
     return h;
   }
 
   /* 阶段内容 */
-  function stageContent(p, stageKey) {
+  function stageContent(p, stageKey, draftOpen) {
     var schema = C.SCHEMA[stageKey] || [], st = p.stages[stageKey];
     var values = E.compute(p, stageKey);
     var pr = E.progress(p, stageKey);
     var h = '<div class="card"><div class="card-title">完成度 <span class="tag green">' + pr.done + ' / ' + pr.total + ' 项 · ' + pr.pct + '%</span></div>' +
       '<div class="bar green"><div class="bar-fill green" style="width:' + pr.pct + '%"></div></div></div>';
-    if (stageKey === 'segment') h += compTool(p, st.competitors);
+    if (stageKey === 'segment') h += compTool(p, st.competitors, draftOpen);
 
     schema.forEach(function (sec) {
       h += '<div class="card"><div class="card-title">' + esc(sec.title) + '</div>';
@@ -2022,13 +2032,13 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<button class="btn btn-sm" data-sop="export-print">打印 / 存为 PDF</button></div></div>';
   }
 
-  function page(db, activeId, stage, newOpen, editOpen) {
+  function page(db, activeId, stage, newOpen, editOpen, draftOpen) {
     var p = db.projects.filter(function (x) { return x.id === activeId; })[0];
     var h = '<div class="page-head"><h1>项目</h1><p>新品推广全链路 · 市场调研 → 类目细分 → 模拟预估 → 链接准备 → 推广计划</p></div>';
     h += projects(db, activeId) + newForm(newOpen);
     if (!p) return h;
     h += stages(p, stage) + projBar(p, editOpen);
-    h += stageContent(p, stage);
+    h += stageContent(p, stage, draftOpen);
     h += exportBar(p);
     return h;
   }
@@ -2321,7 +2331,7 @@ const CONTENT = {
     },
     moreOpen: false, settingsOpen: false, fillOpen: null, goalsOpen: false, goalQuick: false,
     aiBusy: false, lastPraise: {}, aiError: '',
-    sopProject: '', sopStage: 'research', sopNewOpen: false, sopEditOpen: false
+    sopProject: '', sopStage: 'research', sopNewOpen: false, sopEditOpen: false, compDraftOpen: false
   };
 
   /* ---------- 路由 ---------- */
@@ -3785,7 +3795,7 @@ const CONTENT = {
     else if (UI.tab === 'sop') {
       var sc = sopCurrent();
       if (sc.project) UI.sopProject = sc.project.id;
-      body = window.SOPView.page(sc.db, UI.sopProject, UI.sopStage, UI.sopNewOpen, UI.sopEditOpen);
+      body = window.SOPView.page(sc.db, UI.sopProject, UI.sopStage, UI.sopNewOpen, UI.sopEditOpen, UI.compDraftOpen);
     }
     else if (UI.tab === 'ads') body = renderAds();
     else if (UI.tab === 'data') body = renderCalcPanel() + renderData();
@@ -3831,8 +3841,9 @@ const CONTENT = {
       var parsed = window.CompetitorsEngine.parse(ta.value);
       if (!parsed.comps.length) { toast('没识别到竞品块，检查是否用了【竞品1】格式'); return; }
       var result = window.CompetitorsEngine.analyze(parsed);
+      UI.compDraftOpen = true;  // 点解析后自动展开数据底稿，让用户看到刚算出的结果
       compSet(function (c) { c.input = ta.value; c.result = result; c.aiText = ''; });
-      toast('分析完成：' + parsed.comps.length + ' 个竞品，' + result.actions.length + ' 条动作');
+      toast('分析完成：' + parsed.comps.length + ' 个竞品，' + result.actions.length + ' 条动作（明细在下方数据底稿）');
     } catch (e) { toast('竞品分析失败：' + e.message); }
   }
   async function compAI() {
