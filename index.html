@@ -1390,6 +1390,27 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
         L.push('');
       });
     });
+    /* 竞品分析（类目细分阶段）：粘贴原文 + 规则结果摘要 + AI 分析全文 */
+    var comp = project.stages.segment && project.stages.segment.competitors;
+    if (comp && (comp.input || comp.result || comp.aiText)) {
+      L.push('## 附：竞品分析');
+      L.push('');
+      if (comp.result) {
+        L.push('### 规则分析摘要');
+        (comp.result.digest || []).forEach(function (d) { L.push('- ' + d.k + '：' + d.v); });
+        if (comp.result.actions && comp.result.actions.length) {
+          L.push('');
+          L.push('| 优先级 | 漏斗层 | 具体动作 | 验证 |');
+          L.push('| --- | --- | --- | --- |');
+          comp.result.actions.slice(0, 20).forEach(function (a) {
+            L.push('| ' + a.pri + ' | ' + a.layer + ' | ' + escMd(a.act) + ' | ' + escMd(a.verify) + ' |');
+          });
+        }
+        L.push('');
+      }
+      if (comp.input) { L.push('### 粘贴的原始数据'); L.push('', '```', comp.input, '```', ''); }
+      if (comp.aiText) { L.push('### AI 深度分析', '', comp.aiText, ''); }
+    }
     L.push('---');
     L.push('由亚马逊工作台导出 · 数据只存本机');
     return L.join('\n');
@@ -1907,6 +1928,12 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       (comp && comp.promptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到任意 AI 工具，如豆包 / DeepSeek / ChatGPT）：</div>' +
         '<textarea readonly rows="10" data-comp="prompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(comp.promptText) + '</textarea>' +
         '<div class="pill-row"><button class="btn btn-sm" data-comp="copy-prompt">复制提示词</button></div>' : '') +
+      '<div class="divider"></div>' +
+      '<div class="card-sub"><b>AI 分析结果</b>：把外部 AI（豆包/DeepSeek/ChatGPT）给出的六块分析整段粘贴到下面，点「保存」，就会留在这份竞品分析里，并随 SOP 文档一起导出。</div>' +
+      '<textarea data-comp="ai-result" rows="8" placeholder="把 AI 输出的 Markdown 分析整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.aiText) || '') + '</textarea>' +
+      '<div class="pill-row"><button class="btn btn-sm" data-comp="save-result">保存分析结果</button>' +
+      '<button class="btn btn-sm" data-comp="copy-result">复制结果</button>' +
+      (comp && comp.aiText ? '<span class="tag green">已保存 · ' + comp.aiText.length + ' 字</span>' : '') + '</div>' +
       '</div>';
     if (!r) return h;
     /* 一、诊断摘要 */
@@ -1946,9 +1973,6 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       (r.gaps.length ? r.gaps.map(function (g) { return '<div class="row"><span class="dot gray"></span><span class="row-text term-row">' + esc(g) + '</span></div>'; }).join('')
         : '<div class="row"><span class="dot green"></span><span class="row-text">信息完整，无明显缺口。改标题可能影响已有排名，先小步测。</span></div>') +
       '</div></div>';
-    if (comp && comp.aiText) {
-      h += '<div class="card"><div class="card-title">AI 深度分析</div><pre class="report-pre" style="white-space:pre-wrap">' + esc(comp.aiText) + '</pre></div>';
-    }
     return h;
   }
 
@@ -3868,10 +3892,17 @@ const CONTENT = {
       toast('提示词已生成，可复制到任意 AI 工具');
       return;
     }
-    if (a === 'copy-prompt' || a === 'copy-template') {
-      var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]' : '[data-comp="template"]';
+    if (a === 'copy-prompt' || a === 'copy-template' || a === 'copy-result') {
+      var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]' : (a === 'copy-result' ? '[data-comp="ai-result"]' : '[data-comp="template"]');
       var t = view.querySelector(sel);
       if (t) fallbackCopy(t);
+      return;
+    }
+    if (a === 'save-result') {
+      var rta = view.querySelector('[data-comp="ai-result"]');
+      if (!rta || !rta.value.trim()) { toast('先粘贴 AI 分析内容'); return; }
+      compSet(function (c) { c.aiText = rta.value; });
+      toast('AI 分析已保存到竞品分析，将随 SOP 文档导出');
       return;
     }
   });
