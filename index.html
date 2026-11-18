@@ -3689,11 +3689,11 @@ const CONTENT = {
     var h = '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">今日待办 <small>' +
       st.done + ' / ' + st.total + ' 完成' + (st.total ? ' · ' + st.pct + '%' : '') + '</small></div>' +
       '<div class="card-sub">每天复用项天天出现；单次项只在添加当天显示。勾选完成会记进近 7 天完成率。</div>';
-    /* 新增输入 */
-    h += '<div class="pill-row" style="margin:10px 0 6px">' +
-      '<input class="input" data-model="todoText" placeholder="例：看一遍广告搜索词报告" style="flex:1">' +
-      '<label class="checkbox"><input type="checkbox" data-check="todoRepeat"> 每天</label>' +
-      '<button class="btn btn-sm btn-primary green" data-act="todo-add">加待办</button></div>';
+    /* 新增输入：一行一条，可一次粘多条 */
+    h += '<div class="card-sub" style="margin-top:10px;margin-bottom:4px">一次可写多条，<b>一行一条</b>，换行自动分开。</div>' +
+      '<textarea class="input" data-model="todoText" rows="3" placeholder="看一遍广告搜索词报告&#10;记今日利润&#10;回复买家消息" style="width:100%;resize:vertical;font-size:12px"></textarea>' +
+      '<div class="pill-row" style="margin:6px 0"><label class="checkbox"><input type="checkbox" data-check="todoRepeat"> 都设为每天重复</label>' +
+      '<span class="spacer"></span><button class="btn btn-sm btn-primary green" data-act="todo-add">加待办</button></div>';
     if (!list.length) h += '<div class="empty">还没有待办。加一条每天要做的小事，比如「看广告报告」「记今日利润」。</div>';
     else {
       h += '<div class="list">';
@@ -4474,11 +4474,13 @@ const CONTENT = {
         renderAll(); break;
       }
       case 'todo-add': {
-        var txt = String((f.todoText || '').trim());
-        if (!txt) { toast('先写一条待办内容'); break; }
-        DB.todos.push({ id: 't' + Date.now() + Math.random().toString(36).slice(2, 6), text: txt, repeat: !!f.todoRepeat, createdAt: Date.now(), done: {} });
+        var lines = String(f.todoText || '').split(/\r?\n/).map(function (s) { return s.replace(/^[\s•\-*]+|[\s]+$/g, '').trim(); }).filter(Boolean);
+        if (!lines.length) { toast('先写至少一条待办（一行一条）'); break; }
+        lines.forEach(function (txt) {
+          DB.todos.push({ id: 't' + Date.now() + Math.random().toString(36).slice(2, 6), text: txt, repeat: !!f.todoRepeat, createdAt: Date.now(), done: {} });
+        });
         f.todoText = ''; f.todoRepeat = false;
-        save(); renderAll(); toast('待办已加'); break;
+        save(); renderAll(); toast('已添加 ' + lines.length + ' 条待办'); break;
       }
       case 'todo-toggle': {
         var t = (DB.todos || []).filter(function (x) { return x.id === el.dataset.id; })[0];
