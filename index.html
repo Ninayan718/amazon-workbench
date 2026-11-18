@@ -3682,20 +3682,6 @@ const CONTENT = {
       /* ===== 实际数据页：报表核算 + 每日录入 + 图表 + 参考 ===== */
       html += renderCalcPanel();
       html += '<div class="cols"><div class="col">';
-      /* 今天记一笔 */
-      html += '<div class="card"><div class="card-title">今天记一笔</div>' +
-        '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
-        '<div class="sale-grid">' +
-        '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
-        '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
-        '<div class="field"><label>订单利润 ¥</label><input type="number" step="any" data-model="saleProfit" placeholder="真实值" value="' + esc(f.saleProfit) + '"></div>' +
-        '</div>' +
-        '<div class="sale-grid" style="margin-top:8px">' +
-        '<div class="field"><label>广告花费 $（选填）</label><input type="number" min="0" step="any" data-model="saleAd" placeholder="0" value="' + esc(f.saleAd) + '"></div>' +
-        '<div class="field"><label>ACOS %（选填）</label><input type="number" min="0" step="any" data-model="saleAcos" placeholder="留空" value="' + esc(f.saleAcos) + '"></div>' +
-        '<div></div></div>' +
-        '<div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="sale-save">' + (s.hasToday ? '更新今天' : '记下今天') + '</button></div></div>';
-
       /* 本月明细 */
       html += '<div class="card"><div class="card-title">本月每日数据</div>' +
         '<div class="card-sub">利润为报表核算的真实订单利润，不含月固定费。</div>';
@@ -3781,6 +3767,20 @@ const CONTENT = {
     ]);
 
     html += '<div class="cols"><div class="col">';
+    /* 今天记一笔 */
+    html += '<div class="card"><div class="card-title">今天记一笔</div>' +
+      '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
+      '<div class="sale-grid">' +
+      '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
+      '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
+      '<div class="field"><label>订单利润 ¥</label><input type="number" step="any" data-model="saleProfit" placeholder="真实值" value="' + esc(f.saleProfit) + '"></div>' +
+      '</div>' +
+      '<div class="sale-grid" style="margin-top:8px">' +
+      '<div class="field"><label>广告花费 $（选填）</label><input type="number" min="0" step="any" data-model="saleAd" placeholder="0" value="' + esc(f.saleAd) + '"></div>' +
+      '<div class="field"><label>ACOS %（选填）</label><input type="number" min="0" step="any" data-model="saleAcos" placeholder="留空" value="' + esc(f.saleAcos) + '"></div>' +
+      '<div></div></div>' +
+      '<div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="sale-save">' + (s.hasToday ? '更新今天' : '记下今天') + '</button></div></div>';
+
     /* 广告预算建议 */
     html += '<div class="card"><div class="card-title">今日广告建议 · 稳健型</div>';
     if (s.ad3Count >= 3) {
