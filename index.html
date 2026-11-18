@@ -1545,11 +1545,13 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     });
     /* 竞品分析（类目细分阶段）：粘贴原文 + 规则结果摘要 + AI 分析全文 */
     var comp = project.stages.segment && project.stages.segment.competitors;
-    if (comp && (comp.input || comp.result || comp.aiText || comp.vresult)) {
+    if (comp && (comp.input || comp.result || comp.aiText || comp.vresult || comp.tresult)) {
       L.push('## 附：竞品分析');
       L.push('');
       if (comp.vlinks) { L.push('### 竞品链接', '', comp.vlinks, ''); }
       if (comp.vresult) { L.push('### 图片与 A+ 分析', '', comp.vresult, ''); }
+      if (comp.tproduct) { L.push('### 我的产品信息', '', comp.tproduct, ''); }
+      if (comp.tresult) { L.push('### 流量表分析', '', comp.tresult, ''); }
       if (comp.aiText) { L.push('### AI 深度分析', '', comp.aiText, ''); }
       if (comp.result) {
         L.push('### 数据底稿（规则自动计算）');
@@ -1948,11 +1950,46 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     return VISUAL_PROMPT + '\n' + s + (notes ? '\n\n补充说明：' + notes : '');
   }
 
+  /* ================= 竞品流量表（关键词对比）专用提示词 ================= */
+  var TRAFFIC_PROMPT = [
+    '你是一名亚马逊运营与关键词策略顾问，服务对象是单干卖家。任务是分析多ASIN关键词流量对比表（西柚洞察/卖家精灵等导出），从竞品流量里找出这个新品能抢的词，给出可落地的Listing优化动作。',
+    '',
+    '【分析原则】',
+    '1. 先看相关性分布：极低相关词往往占绝大多数，是噪音，先剔除；只聚焦高/强相关和中相关大词。',
+    '2. 警惕"机会词陷阱"：流量大、CVR高的机会词可能是另一类产品（如空气质量仪报告里的CO/燃气/smoke detector），被头部独占——如果自己产品没有对应功能，坚决不碰，加了是虚假宣传+退货。',
+    '3. 识别真正头部：按"有流量词数 + 总流量份额"判断，别只看单个大词。注意头部大词背后的产品定义是否和自己一致。',
+    '4. 挑可抢词：相关性高/中 + 竞争难度"简单" + 搜索量>300 + 匹配自己产品形态（插电/电池、几合一、有无某检测项）。',
+    '5. 看 Top3 转化份额：高转化份额说明搜索者真会买，是缝隙机会，尤其头部大卖没占的词最值得抢。',
+    '6. 每条建议指向具体位置（标题/五点/后台ST/广告）和具体改法，不写空话。',
+    '',
+    '【输出格式】中文 Markdown，按六块顺序：',
+    '一、竞品流量格局（每个ASIN：有流量词数、总流量份额、主吃哪类词、产品定义判断）',
+    '二、高相关核心词表（关键词 | 流量 | CPC | 难度 | Top3转化份额 | 主吃竞品）',
+    '三、机会词 vs 陷阱词（明确哪些能抢、哪些是别的产品类目不能碰，说清理由）',
+    '四、Listing具体改法（标题：≤74字符且塞核心流量词；商品亮点：短语≤125字符不重复标题；五点；后台ST；广告具体投放策略）',
+    '五、验证与复盘（单变量测试、14天看数据、只留赢家词）',
+    '六、一句话策略',
+    '',
+    '【亚马逊标题与商品亮点规则】（务必遵守）',
+    '- 商品名称少于 75 字符时商品亮点才显示——标题要 ≤74，不能正好 75',
+    '- 商品亮点是短语不是句子，整体 ≤125 字符，且不重复商品名称已有信息',
+    '',
+    '【我的产品信息】（用于判断哪些词匹配）'
+  ].join('\n');
+
+  function buildTrafficPrompt(productText, notes) {
+    var s = String(productText || '').trim();
+    if (!s) return '';
+    return TRAFFIC_PROMPT + '\n' + s + (notes ? '\n\n补充说明：' + notes : '') +
+      '\n\n【流量表数据】（把表格从Excel复制粘贴到下方，或让AI读取上传的表格文件）';
+  }
+
   global.CompetitorsEngine = {
     parse: parse, analyze: analyze, tier: tier, tokens: tokens, freqMap: freqMap,
     topWords: topWords, commonWords: commonWords, structCover: structCover, badCats: badCats,
     buildPrompt: buildPrompt, AI_PROMPT: AI_PROMPT,
-    buildVisualPrompt: buildVisualPrompt, VISUAL_PROMPT: VISUAL_PROMPT
+    buildVisualPrompt: buildVisualPrompt, VISUAL_PROMPT: VISUAL_PROMPT,
+    buildTrafficPrompt: buildTrafficPrompt, TRAFFIC_PROMPT: TRAFFIC_PROMPT
   };
 })(window);
 
@@ -2147,6 +2184,24 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<textarea data-comp="vresult" rows="6" placeholder="把图片与 A+ 对比报告整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.vresult) || '') + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-sm" data-comp="save-vresult">保存分析</button>' +
       (comp && comp.vresult ? '<span class="tag green">已保存 · ' + comp.vresult.length + ' 字</span>' : '') + '</div></div>';
+
+    /* 竞品流量表（关键词对比）分析 */
+    h += '<div class="card" style="border-left:3px solid var(--amber)"><div class="card-title">竞品流量表分析 <span class="tag amber">关键词 · 流量份额</span></div>' +
+      '<div class="card-sub">先填自己产品的形态（几合一/插电或电池/有无某检测项），生成「流量表分析」提示词；复制给外部 AI，同时把西柚洞察导出的多ASIN对比表交给它（上传文件或粘贴表格）。分析出"能抢的词 vs 陷阱词"后粘回保存。</div>' +
+      '<div class="field"><label>我的产品信息（用于判断词是否匹配）</label>' +
+      '<textarea data-comp="tproduct" rows="3" placeholder="例：6-in-1 空气质量监测仪，插电Type-C持续供电，测CO2/TVOC/HCHO/温度/湿度/AQI，无CO/燃气/烟雾检测，售价$56.99，新品评论1个" style="width:100%;font-size:12px">' + esc((comp && comp.tproduct) || '') + '</textarea></div>' +
+      '<div class="field" style="margin-top:8px"><label>补充说明（可选）</label>' +
+      '<input type="text" data-comp="tnotes" placeholder="如：表里有4个竞品，哪个是头部；只想优化标题和广告" value="' + esc((comp && comp.tnotes) || '') + '" style="width:100%"></div>' +
+      '<div class="pill-row" style="margin-top:8px"><button class="btn btn-sm" data-comp="tprompt">生成流量表分析提示词</button>' +
+      '<span class="hint">生成后复制，连同 Excel 表格一起发给 AI</span></div>' +
+      (comp && comp.tpromptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到 AI 工具，并附上流量表）：</div>' +
+        '<textarea readonly rows="10" data-comp="tprompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(comp.tpromptText) + '</textarea>' +
+        '<div class="pill-row"><button class="btn btn-sm" data-comp="copy-tprompt">复制提示词</button></div>' : '') +
+      '<div class="divider"></div>' +
+      '<div class="card-sub"><b>流量表分析结果</b>：把 AI 给出的分析整段粘回这里保存。</div>' +
+      '<textarea data-comp="tresult" rows="6" placeholder="把关键词/流量分析结果整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.tresult) || '') + '</textarea>' +
+      '<div class="pill-row"><button class="btn btn-sm" data-comp="save-tresult">保存分析</button>' +
+      (comp && comp.tresult ? '<span class="tag green">已保存 · ' + comp.tresult.length + ' 字</span>' : '') + '</div></div>';
 
     if (!r) return h;
     /* 规则数据底稿：默认折叠，外面留概要 */
@@ -4347,10 +4402,11 @@ const CONTENT = {
       toast('提示词已生成，可复制到任意 AI 工具');
       return;
     }
-    if (a === 'copy-prompt' || a === 'copy-template' || a === 'copy-result' || a === 'copy-vprompt') {
+    if (a === 'copy-prompt' || a === 'copy-template' || a === 'copy-result' || a === 'copy-vprompt' || a === 'copy-tprompt') {
       var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]'
         : (a === 'copy-vprompt' ? '[data-comp="vprompt-text"]'
-        : (a === 'copy-result' ? '[data-comp="ai-result"]' : '[data-comp="template"]'));
+        : (a === 'copy-tprompt' ? '[data-comp="tprompt-text"]'
+        : (a === 'copy-result' ? '[data-comp="ai-result"]' : '[data-comp="template"]')));
       var t = view.querySelector(sel);
       if (t) fallbackCopy(t);
       return;
@@ -4376,6 +4432,22 @@ const CONTENT = {
       if (!vres || !vres.value.trim()) { toast('先粘贴图片/A+ 分析结果'); return; }
       compSet(function (c) { c.vresult = vres.value; });
       toast('图片分析已保存，将随 SOP 文档导出');
+      return;
+    }
+    if (a === 'tprompt') {
+      var pta = view.querySelector('[data-comp="tproduct"]');
+      if (!pta || !pta.value.trim()) { toast('先填写我的产品信息'); return; }
+      var tnta = view.querySelector('[data-comp="tnotes"]');
+      var tptext = window.CompetitorsEngine.buildTrafficPrompt(pta.value, tnta ? tnta.value : '');
+      compSet(function (c) { c.tproduct = pta.value; c.tnotes = tnta ? tnta.value : ''; c.tpromptText = tptext; });
+      toast('流量表分析提示词已生成，复制到 AI 并附上表格');
+      return;
+    }
+    if (a === 'save-tresult') {
+      var tres = view.querySelector('[data-comp="tresult"]');
+      if (!tres || !tres.value.trim()) { toast('先粘贴流量表分析结果'); return; }
+      compSet(function (c) { c.tresult = tres.value; });
+      toast('流量表分析已保存，将随 SOP 文档导出');
       return;
     }
   });
