@@ -2186,7 +2186,7 @@ const CONTENT = {
     s => s.needReached && `本月真实到手目标已达成：扣掉月固定成本后仍有 ¥${s.realProfit} / ¥${s.goal}。剩下的日子是余量。`,
     s => s.hasToday && s.todayProfit >= s.todayNeed && s.todayNeed > 0 && `今天的订单利润 ¥${s.todayProfit} 已过线（今日需 ¥${s.todayNeed}），按全口径算的。`,
     s => s.hasToday && `今天 ${s.todayOrders} 单、销售额 $${s.todayRevenue}，订单利润 ¥${s.todayProfit}（真实值，非估算）。`,
-    s => s.daysLeft > 0 && s.needToday > 0 && `今天需要赚 ¥${s.needToday}${s.canEstimate ? '、约 ' + s.needOrders + ' 单' : ''}（全口径）。已扣月固定成本 ¥${s.fixedCost}，按剩余 ${s.daysLeft} 天摊平。`,
+    s => s.daysLeft > 0 && s.needToday > 0 && `今天需要赚 ¥${s.needToday}${s.canEstimate ? '、约 ' + s.needOrders + ' 单' : ''}（全口径）。已扣月固定成本 ¥${s.fixed}，按剩余 ${s.daysLeft} 天摊平。`,
     s => s.canEstimate && `近 14 天真实单均利润 ¥${s.profitPerOrder}，客单价 $${s.aov}。这是按你填的订单利润算的均值，不是按利润率估的。`,
     s => s.monthProfit > 0 && `本月累计销售额 $${s.monthRevenue}、订单利润 ¥${s.monthProfit}；扣固定成本后真实到手 ¥${s.realProfit}，完成 ${s.pct}%。`,
     s => s.adBudget && s.ad3Count >= 3 && `前 3 天广告日均 $${s.ad3Avg}，ACOS ${s.ad3Acos}%；今天预算 $${s.adBudget}、ACOS 要求 ≤${s.acosTarget}%。`,
@@ -2331,7 +2331,7 @@ const CONTENT = {
 
   /* ---------- UI 状态 ---------- */
   const UI = {
-    tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know',
+    tab: 'home', fbSub: 'ops', opsView: 'opt', learnSub: 'know', dataSub: 'actual',
     calcOpen: false, calcRows: null, calcFx: '6.7141', calcCsvName: '', calcCostName: '', calcFormulaOpen: false,
     ppcRows: null, ppcName: '', ppcTarget: '30', ppcView: 'current', ppcSelected: '',
     ppcParams: { price: '', margin: '', acos: '', budget: '', topN: '30', adShare: '0.7', market: '美国站', period: '', product: '', position: '' },
@@ -3668,8 +3668,74 @@ const CONTENT = {
   /* ---------- 页面：数据与目标 ---------- */
   function renderData() {
     const s = salesState(), f = UI.form, st = DB.settings;
-    let html = '<div class="page-head"><h1>数据</h1><p>看板，不是打卡 · 每天填真实利润，目标按剩余天数动态补齐</p></div>';
+    const isGoal = UI.dataSub === 'goal';
+    let html = '<div class="page-head"><h1>数据</h1><p>' +
+      (isGoal ? '目标与完成跟踪 · 月目标按剩余天数动态补齐，断一天不扣分' : '实际数据 · 报表核算 + 每日真实利润，文件只在本机算') + '</p></div>';
+    html += '<div class="subtabs">' +
+      '<button class="subtab' + (!isGoal ? ' active' : '') + '" data-act="data-sub" data-sub="actual">实际数据</button>' +
+      '<button class="subtab' + (isGoal ? ' active' : '') + '" data-act="data-sub" data-sub="goal">目标与跟踪</button>' +
+      '<span class="subtab-note">' + (isGoal
+        ? '本月剩 ' + s.daysLeft + ' 天 · 已记 ' + s.logDays + ' 天'
+        : '已归档 ' + (((profitLoad() || {}).bySku || []).length) + ' 个 SKU 核算结果') + '</span></div>';
 
+    if (!isGoal) {
+      /* ===== 实际数据页：报表核算 + 每日录入 + 图表 + 参考 ===== */
+      html += renderCalcPanel();
+      html += '<div class="cols"><div class="col">';
+      /* 今天记一笔 */
+      html += '<div class="card"><div class="card-title">今天记一笔</div>' +
+        '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
+        '<div class="sale-grid">' +
+        '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
+        '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
+        '<div class="field"><label>订单利润 ¥</label><input type="number" step="any" data-model="saleProfit" placeholder="真实值" value="' + esc(f.saleProfit) + '"></div>' +
+        '</div>' +
+        '<div class="sale-grid" style="margin-top:8px">' +
+        '<div class="field"><label>广告花费 $（选填）</label><input type="number" min="0" step="any" data-model="saleAd" placeholder="0" value="' + esc(f.saleAd) + '"></div>' +
+        '<div class="field"><label>ACOS %（选填）</label><input type="number" min="0" step="any" data-model="saleAcos" placeholder="留空" value="' + esc(f.saleAcos) + '"></div>' +
+        '<div></div></div>' +
+        '<div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="sale-save">' + (s.hasToday ? '更新今天' : '记下今天') + '</button></div></div>';
+
+      /* 本月明细 */
+      html += '<div class="card"><div class="card-title">本月每日数据</div>' +
+        '<div class="card-sub">利润为报表核算的真实订单利润，不含月固定费。</div>';
+      if (!s.monthRows.length) html += '<div class="empty">' + esc(CONTENT.EMPTY.data) + '</div>';
+      else {
+        const rowsDesc = s.monthRows.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+        html += '<div class="list">';
+        rowsDesc.forEach(function (r) {
+          const pf = r.profitCny;
+          const hasP = pf !== null && pf !== undefined && pf !== '';
+          const pText = hasP ? '¥' + round2(Number(pf)) : '利润未填';
+          const ac = r.acos !== '' && r.acos != null ? ' · AC' + r.acos + '%' : '';
+          const ad = r.adSpendUsd !== '' && r.adSpendUsd != null ? ' · 广$' + r.adSpendUsd : '';
+          html += '<div class="row"><span class="row-text">' + esc(r.date.slice(5)) + '</span>' +
+            '<span class="tag green">' + (Number(r.orders) || 0) + ' 单</span>' +
+            '<span class="mins">$' + round2(Number(r.revenueUsd) || 0) + ' · ' + pText + ac + ad + '</span>' +
+            '<button class="btn btn-sm" data-act="sale-del" data-date="' + esc(r.date) + '">删</button></div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '</div><div class="col">';
+
+      /* 本月销售额柱状 */
+      html += '<div class="card"><div class="card-title">本月每日销售额 $</div>' + dataBars(s.monthRows) + '</div>';
+
+      /* 参考数字 */
+      html += '<div class="card"><div class="card-title">参考数字</div>' +
+        '<div class="ref-grid">' +
+        '<div><span>近 14 天客单价</span><b>$' + s.aov + '</b></div>' +
+        '<div><span>真实单均利润</span><b>¥' + s.profitPerOrder + '</b></div>' +
+        '<div><span>汇率 USD→CNY</span><b>' + s.fx + '</b></div>' +
+        '<div><span>今日 ACOS</span><b' + (s.acos !== null && s.acos > s.warn ? ' style="color:#A32D2D"' : '') + '>' + (s.acos === null ? '—' : s.acos + '%') + '</b></div>' +
+        '</div><div class="hint">单均利润按你填的真实利润算（不是按利润率估）。汇率可在「目标与跟踪」页设置里改。</div></div>';
+
+      html += '</div></div>';
+      return html;
+    }
+
+    /* ===== 目标与跟踪页 ===== */
     /* 进度总览：月目标可点改 */
     html += '<div class="card" style="margin-bottom:12px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">' +
@@ -3715,21 +3781,7 @@ const CONTENT = {
     ]);
 
     html += '<div class="cols"><div class="col">';
-    /* 录入 */
-    html += '<div class="card"><div class="card-title">今天记一笔</div>' +
-      '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
-      '<div class="sale-grid">' +
-      '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
-      '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
-      '<div class="field"><label>订单利润 ¥</label><input type="number" step="any" data-model="saleProfit" placeholder="真实值" value="' + esc(f.saleProfit) + '"></div>' +
-      '</div>' +
-      '<div class="sale-grid" style="margin-top:8px">' +
-      '<div class="field"><label>广告花费 $（选填）</label><input type="number" min="0" step="any" data-model="saleAd" placeholder="0" value="' + esc(f.saleAd) + '"></div>' +
-      '<div class="field"><label>ACOS %（选填）</label><input type="number" min="0" step="any" data-model="saleAcos" placeholder="留空" value="' + esc(f.saleAcos) + '"></div>' +
-      '<div></div></div>' +
-      '<div class="pill-row"><span class="spacer"></span><button class="btn btn-primary green" data-act="sale-save">' + (s.hasToday ? '更新今天' : '记下今天') + '</button></div></div>';
-
-    /* 广告预算建议（稳健型） */
+    /* 广告预算建议 */
     html += '<div class="card"><div class="card-title">今日广告建议 · 稳健型</div>';
     if (s.ad3Count >= 3) {
       const up = s.adAction === 'up';
@@ -3748,46 +3800,11 @@ const CONTENT = {
         (s.ad3Count > 0 ? '<div class="hint">当前参考：前 ' + s.ad3Count + ' 天日均 $' + s.ad3Avg + '（满 3 天后启用 +10% / -20% 规则）。</div>' : '');
     }
     html += '</div>';
-
-    /* 本月明细 */
-    html += '<div class="card"><div class="card-title">本月每日数据</div>' +
-      '<div class="card-sub">利润为报表核算的真实订单利润，不含月固定费。</div>';
-    if (!s.monthRows.length) html += '<div class="empty">' + esc(CONTENT.EMPTY.data) + '</div>';
-    else {
-      const rowsDesc = s.monthRows.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
-      html += '<div class="list">';
-      rowsDesc.forEach(function (r) {
-        const pf = r.profitCny;
-        const hasP = pf !== null && pf !== undefined && pf !== '';
-        const pText = hasP ? '¥' + round2(Number(pf)) : '利润未填';
-        const ac = r.acos !== '' && r.acos != null ? ' · AC' + r.acos + '%' : '';
-        const ad = r.adSpendUsd !== '' && r.adSpendUsd != null ? ' · 广$' + r.adSpendUsd : '';
-        html += '<div class="row"><span class="row-text">' + esc(r.date.slice(5)) + '</span>' +
-          '<span class="tag green">' + (Number(r.orders) || 0) + ' 单</span>' +
-          '<span class="mins">$' + round2(Number(r.revenueUsd) || 0) + ' · ' + pText + ac + ad + '</span>' +
-          '<button class="btn btn-sm" data-act="sale-del" data-date="' + esc(r.date) + '">删</button></div>';
-      });
-      html += '</div>';
-    }
-    html += '</div>';
     html += '</div><div class="col">';
 
     /* 即时回音 */
     html += echoCard('data', s, CONTENT.PRAISE_DATA, 'green', '数据回音',
       s.hasToday ? '¥' + s.todayProfit + ' · ' + s.todayOrders + ' 单' : '今日未记', s.pct / 100);
-
-    /* 参考数字 */
-    html += '<div class="card"><div class="card-title">参考数字</div>' +
-      '<div class="ref-grid">' +
-      '<div><span>近 14 天客单价</span><b>$' + s.aov + '</b></div>' +
-      '<div><span>真实单均利润</span><b>¥' + s.profitPerOrder + '</b></div>' +
-      '<div><span>汇率 USD→CNY</span><b>' + s.fx + '</b></div>' +
-      '<div><span>今日 ACOS</span><b' + (s.acos !== null && s.acos > s.warn ? ' style="color:#A32D2D"' : '') + '>' + (s.acos === null ? '—' : s.acos + '%') + '</b></div>' +
-      '</div><div class="hint">单均利润按你填的真实利润算（不是按利润率估）。汇率可在下方设置里改。</div></div>';
-
-    /* 本月销售额柱状 */
-    html += '<div class="card"><div class="card-title">本月每日销售额 $</div>' +
-      dataBars(s.monthRows) + '</div>';
 
     /* 目标设置 */
     html += '<div class="collapse"><button class="collapse-head" data-act="toggle-goals">' +
@@ -3856,7 +3873,7 @@ const CONTENT = {
       body = window.SOPView.page(sc.db, UI.sopProject, UI.sopStage, UI.sopNewOpen, UI.sopEditOpen, UI.compDraftOpen);
     }
     else if (UI.tab === 'ads') body = renderAds();
-    else if (UI.tab === 'data') body = renderCalcPanel() + renderData();
+    else if (UI.tab === 'data') body = renderData();
     else if (UI.tab === 'feedback') body = renderFeedback();
     else body = renderReport();
     document.getElementById('view').innerHTML = body;
@@ -3864,7 +3881,9 @@ const CONTENT = {
       home: '工作台数据底座：MSKU 做利润主键、ASIN 做流量主键；文件不上传，结果只存本机。',
       sop: '一个新品就是一个项目，按 SOP 五阶段推进；每阶段的清单与测算只存在本机。',
       ads: '广告结论要和利润口径对齐，否则会出现「ACOS 降了但利润没涨」。',
-      data: '这一页是看板不是打卡：报表核算在本地完成，利润为真实值；目标缺口按剩余天数摊平，断一天不扣分。',
+      data: UI.dataSub === 'goal'
+        ? '看板不是打卡：目标缺口按剩余天数摊平，断一天不扣分。'
+        : '实际数据在本地核算，利润为真实值；文件不上传，结果只存本机。',
       feedback: '经营只数可控动作、不看单量；学习两个子区各自独立统计。中断不清零，回来记第一条就续上。',
       report: '周报汇总工作台四模块状态、利润核算、数据目标，以及经营/亚马逊知识/其他学习三段反馈。'
     };
@@ -4088,6 +4107,7 @@ const CONTENT = {
     const act = el.dataset.act, f = UI.form;
     switch (act) {
       case 'nav': go(el.dataset.tab); break;
+      case 'data-sub': UI.dataSub = el.dataset.sub; renderAll(); break;
       case 'fb-sub': UI.fbSub = el.dataset.sub; go('feedback', el.dataset.sub); break;
       case 'ops-view': UI.opsView = el.dataset.view; go('feedback', UI.opsView); break;
       case 'ops-type': f.opsType[UI.opsView] = el.dataset.type; renderAll(); break;
