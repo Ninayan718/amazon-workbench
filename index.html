@@ -2605,7 +2605,6 @@ const CONTENT = {
   const TABS = [
     { k: 'home', l: '总览', icon: 'home' }, { k: 'sop', l: '项目', icon: 'target' },
     { k: 'ads', l: '广告', icon: 'ads' }, { k: 'data', l: '数据', icon: 'profit' },
-    { k: 'compete', l: '竞品', icon: 'target' },
     { k: 'feedback', l: '反馈', icon: 'db' }, { k: 'report', l: '周报', icon: 'home' }
   ];
   function validTab(k) { return TABS.some(function (t) { return t.k === k; }); }
@@ -3312,70 +3311,6 @@ const CONTENT = {
         (res.opt.digest.targetAssumed ? '（目标ACOS按毛利率×0.7假设）' : '') + (res.replaced ? ' · 覆盖了原周数据' : ''));
       renderAll();
     } catch (e) { toast('分析失败：' + e.message); }
-  }
-
-  /* ===== 独立竞品页（关键词流量 / 图片A+）数据：不依赖项目，独立 key ===== */
-  const COMPETE_KEY = 'amz_compete_v1';
-  function competeLoad() {
-    try { var d = JSON.parse(localStorage.getItem(COMPETE_KEY) || 'null'); return d && typeof d === 'object' ? d : {}; }
-    catch (e) { return {}; }
-  }
-  function competeSet(fn) {
-    var d = competeLoad(); fn(d);
-    try { localStorage.setItem(COMPETE_KEY, JSON.stringify(d)); return true; }
-    catch (e) { toast('存储空间不足，保存失败'); return false; }
-  }
-  function renderCompete() {
-    var c = competeLoad();
-    var h = '<div class="page-head"><h1>竞品</h1><p>关键词流量与图片A+分析 · 生成提示词给 AI，结果粘回存档 · 数据只存本机</p></div>';
-
-    /* 子导航 */
-    h += '<div class="pill-row" style="margin:0 0 14px">' +
-      '<span class="tag blue">1. 关键词流量分析</span><span class="hint">→</span>' +
-      '<span class="tag green">2. 图片与A+分析</span><span class="hint">→</span>' +
-      '<span class="tag gray">3. 结果粘回存档</span></div>';
-
-    /* 模块一：关键词流量分析 */
-    h += '<div class="card" style="border-left:3px solid var(--amber)"><div class="card-title">竞品关键词流量分析 <span class="tag amber">西柚洞察 · 多ASIN对比表</span></div>' +
-      '<div class="card-sub">先填产品形态（几合一/插电或电池/有无某检测项），生成专用提示词；复制给外部 AI，同时把多ASIN关键词对比表上传或粘贴。分析出「能抢的词 vs 陷阱词」后粘回下面的结果区存档。</div>' +
-      '<div class="field"><label>我的产品信息（判断词是否匹配的关键）</label>' +
-      '<textarea data-compete="tproduct" rows="3" placeholder="例：6-in-1 空气质量监测仪，插电Type-C，测 CO2/TVOC/HCHO/温湿度/AQI，无 CO/燃气/烟雾检测，售价$56.99，新品评论1个" style="width:100%;font-size:12px">' + esc(c.tproduct || '') + '</textarea></div>' +
-      '<div class="field" style="margin-top:8px"><label>补充说明（可选）</label>' +
-      '<input type="text" data-compete="tnotes" placeholder="如：表里4个竞品，只看头部；想优化标题和广告" value="' + esc(c.tnotes || '') + '" style="width:100%"></div>' +
-      '<div class="pill-row" style="margin-top:8px"><button class="btn btn-sm btn-primary" data-act="compete-tprompt">生成流量分析提示词</button>' +
-      '<span class="hint">生成后复制，连同 Excel 表格一起发给 AI</span></div>' +
-      (c.tpromptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到 AI，并附上流量表）：</div>' +
-        '<textarea readonly rows="10" data-compete="tprompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(c.tpromptText) + '</textarea>' +
-        '<div class="pill-row"><button class="btn btn-sm" data-act="compete-copy" data-target="tprompt-text">复制提示词</button></div>' : '') +
-      '</div>';
-
-    /* 模块二：图片与A+分析 */
-    h += '<div class="card" style="border-left:3px solid var(--blue)"><div class="card-title">竞品图片与 A+ 分析 <span class="tag blue">主图 · A+ · 合规</span></div>' +
-      '<div class="card-sub">逐行粘贴竞品链接（amazon.com/dp/…），生成「图片+A+对比」提示词；复制给外部 AI 并上传主图/A+截图。分析出逐张对比与合规风险后粘回结果区存档。</div>' +
-      '<textarea data-compete="vlinks" rows="3" placeholder="https://www.amazon.com/dp/B0HG4JHBQM&#10;https://www.amazon.com/dp/B0HDX76X7Q" style="width:100%;font-size:12px;margin-top:8px">' + esc(c.vlinks || '') + '</textarea>' +
-      '<div class="field" style="margin-top:8px"><label>补充说明（可选，如哪个是自己的链接）</label>' +
-      '<input type="text" data-compete="vnotes" placeholder="如：第2条是我自己的，插电款；第1条是电池款竞品" value="' + esc(c.vnotes || '') + '" style="width:100%"></div>' +
-      '<div class="pill-row" style="margin-top:8px"><button class="btn btn-sm btn-primary" data-act="compete-vprompt">生成图片分析提示词</button></div>' +
-      (c.vpromptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到 AI，可配合上传竞品截图）：</div>' +
-        '<textarea readonly rows="10" data-compete="vprompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(c.vpromptText) + '</textarea>' +
-        '<div class="pill-row"><button class="btn btn-sm" data-act="compete-copy" data-target="vprompt-text">复制提示词</button></div>' : '') +
-      '</div>';
-
-    /* 模块三：结果存档（两类结果分开放） */
-    h += '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">分析结果存档 <span class="tag ' + ((c.tresult || c.vresult) ? 'green' : 'gray') + '">随导出留存</span></div>' +
-      '<div class="card-sub">把 AI 给出的分析整段粘回对应框，点保存。这里的内容可复制，也可导出成 Markdown。</div>' +
-      '<div class="field"><label>关键词流量分析结果</label>' +
-      '<textarea data-compete="tresult" rows="6" placeholder="把流量词/陷阱词/Listing 改法分析整段粘贴到这里…" style="width:100%;font-size:12px">' + esc(c.tresult || '') + '</textarea></div>' +
-      '<div class="pill-row" style="margin-top:6px"><button class="btn btn-sm" data-act="compete-save" data-target="tresult">保存流量分析</button>' +
-      (c.tresult ? '<span class="tag green">已存 · ' + c.tresult.length + ' 字</span>' : '') + '</div>' +
-      '<div class="divider"></div>' +
-      '<div class="field"><label>图片与 A+ 分析结果</label>' +
-      '<textarea data-compete="vresult" rows="6" placeholder="把主图/A+ 逐张对比与优化建议整段粘贴到这里…" style="width:100%;font-size:12px">' + esc(c.vresult || '') + '</textarea></div>' +
-      '<div class="pill-row" style="margin-top:6px"><button class="btn btn-sm" data-act="compete-save" data-target="vresult">保存图片分析</button>' +
-      (c.vresult ? '<span class="tag green">已存 · ' + c.vresult.length + ' 字</span>' : '') +
-      '<span class="spacer"></span><button class="btn btn-sm" data-act="compete-export">导出 Markdown</button></div></div>';
-
-    return h;
   }
 
   function renderAds() {
@@ -4351,8 +4286,7 @@ const CONTENT = {
       : DB.ops;
     document.getElementById('topbarRight').textContent = UI.tab === 'data'
       ? '本月已记 ' + salesState().logDays + ' 天 · 数据只存本机'
-      : (UI.tab === 'compete' ? '竞品分析 · 数据只存本机'
-      : '近 30 天 ' + activeDays(activeItems) + ' 天有记录 · 数据只存本机');
+      : '近 30 天 ' + activeDays(activeItems) + ' 天有记录 · 数据只存本机';
     let body;
     if (UI.tab === 'home') body = renderHome();
     else if (UI.tab === 'sop') {
@@ -4361,7 +4295,6 @@ const CONTENT = {
       body = window.SOPView.page(sc.db, UI.sopProject, UI.sopStage, UI.sopNewOpen, UI.sopEditOpen, UI.compDraftOpen);
     }
     else if (UI.tab === 'ads') body = renderAds();
-    else if (UI.tab === 'compete') body = renderCompete();
     else if (UI.tab === 'data') body = renderData();
     else if (UI.tab === 'feedback') body = renderFeedback();
     else body = renderReport();
@@ -4370,7 +4303,6 @@ const CONTENT = {
       home: '工作台数据底座：MSKU 做利润主键、ASIN 做流量主键；文件不上传，结果只存本机。',
       sop: '一个新品就是一个项目，按 SOP 五阶段推进；每阶段的清单与测算只存在本机。',
       ads: '广告结论要和利润口径对齐，否则会出现「ACOS 降了但利润没涨」。',
-      compete: '竞品分析靠证据不靠漂亮图：先找能抢的词、避开没功能的机会词；图片A+重点看FAQ与合规。文件与结果只存本机。',
       data: UI.dataSub === 'goal'
         ? '看板不是打卡：目标缺口按剩余天数摊平，断一天不扣分。'
         : '实际数据在本地核算，利润为真实值；文件不上传，结果只存本机。',
@@ -4631,48 +4563,6 @@ const CONTENT = {
     if (!el) return;
     const act = el.dataset.act, f = UI.form;
     switch (act) {
-      case 'compete-tprompt': {
-        var elP = view.querySelector('[data-compete="tproduct"]');
-        if (!elP || !elP.value.trim()) { toast('先填写我的产品信息'); break; }
-        var elN = view.querySelector('[data-compete="tnotes"]');
-        var tp = window.CompetitorsEngine.buildTrafficPrompt(elP.value, elN ? elN.value : '');
-        competeSet(function (d) { d.tproduct = elP.value; d.tnotes = elN ? elN.value : ''; d.tpromptText = tp; });
-        toast('流量分析提示词已生成，复制到 AI 并附上表格'); renderAll(); break;
-      }
-      case 'compete-vprompt': {
-        var elL = view.querySelector('[data-compete="vlinks"]');
-        if (!elL || !elL.value.trim()) { toast('先粘贴竞品链接（一行一个）'); break; }
-        var elVN = view.querySelector('[data-compete="vnotes"]');
-        var vp = window.CompetitorsEngine.buildVisualPrompt(elL.value, elVN ? elVN.value : '');
-        competeSet(function (d) { d.vlinks = elL.value; d.vnotes = elVN ? elVN.value : ''; d.vpromptText = vp; });
-        toast('图片分析提示词已生成'); renderAll(); break;
-      }
-      case 'compete-copy': {
-        var tEl = view.querySelector('[data-compete="' + el.dataset.target + '"]');
-        if (tEl) fallbackCopy(tEl);
-        break;
-      }
-      case 'compete-save': {
-        var k = el.dataset.target, rEl = view.querySelector('[data-compete="' + k + '"]');
-        if (!rEl || !rEl.value.trim()) { toast('先粘贴分析结果'); break; }
-        competeSet(function (d) { d[k] = rEl.value; });
-        toast('已保存'); renderAll(); break;
-      }
-      case 'compete-export': {
-        var cd = competeLoad();
-        if (!cd.tresult && !cd.vresult) { toast('还没有分析结果可导出'); break; }
-        var md = '# 竞品分析\n\n';
-        if (cd.tproduct) md += '## 我的产品信息\n\n' + cd.tproduct + '\n\n';
-        if (cd.vlinks) md += '## 竞品链接\n\n' + cd.vlinks + '\n\n';
-        if (cd.tresult) md += '## 关键词流量分析\n\n' + cd.tresult + '\n\n';
-        if (cd.vresult) md += '## 图片与 A+ 分析\n\n' + cd.vresult + '\n\n';
-        md += '---\n由亚马逊工作台导出 · 数据只存本机';
-        var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-        var url = URL.createObjectURL(blob), aEl = document.createElement('a');
-        aEl.href = url; aEl.download = '竞品分析.md'; document.body.appendChild(aEl); aEl.click();
-        document.body.removeChild(aEl); URL.revokeObjectURL(url);
-        toast('已导出 Markdown'); break;
-      }
       case 'nav': go(el.dataset.tab); break;
       case 'data-sub': UI.dataSub = el.dataset.sub; renderAll(); break;
       case 'fb-sub': UI.fbSub = el.dataset.sub; go('feedback', el.dataset.sub); break;
