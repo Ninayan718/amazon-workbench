@@ -1545,9 +1545,11 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     });
     /* 竞品分析（类目细分阶段）：粘贴原文 + 规则结果摘要 + AI 分析全文 */
     var comp = project.stages.segment && project.stages.segment.competitors;
-    if (comp && (comp.input || comp.result || comp.aiText)) {
+    if (comp && (comp.input || comp.result || comp.aiText || comp.vresult)) {
       L.push('## 附：竞品分析');
       L.push('');
+      if (comp.vlinks) { L.push('### 竞品链接', '', comp.vlinks, ''); }
+      if (comp.vresult) { L.push('### 图片与 A+ 分析', '', comp.vresult, ''); }
       if (comp.aiText) { L.push('### AI 深度分析', '', comp.aiText, ''); }
       if (comp.result) {
         L.push('### 数据底稿（规则自动计算）');
@@ -1908,10 +1910,49 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     return AI_PROMPT + '\n' + p + extra;
   }
 
+  /* ================= 竞品链接 / 图片 / A+ 对比专用提示词 ================= */
+  var VISUAL_PROMPT = [
+    '你是一名亚马逊 Listing 视觉与转化顾问，服务对象是单干卖家。任务是对比多个竞品的商品图片和 A+ 内容，给出可直接落地的优化动作。',
+    '',
+    '【分析原则】',
+    '1. 每条建议必须指向具体位置（第几张主图 / 哪个 A+ 模块 / 标题哪一段）和具体改法，不写"优化图片""提升质感"这类空话。',
+    '2. 新品没评论时，买家更信"可核对的证据"（参数、拆解、FAQ）而不是漂亮场景——评估时优先看有没有证据链。',
+    '3. 单干卖家一次只测一个变量，不推荐全面重做；每条建议标注是否需要额外花钱/找设计。',
+    '4. 严格区分"产品形态差异"：电池款 vs 插电款、功能有无（如是否真有 CO/燃气检测），形态不同的词和卖点不能硬抄。',
+    '',
+    '【输出格式】中文 Markdown，按六块顺序：',
+    '一、先看结论（双方各 5 条优劣，一句话点明最大差距）',
+    '二、主图逐张对比表（位置 | 竞品这张讲什么 | 我方这张讲什么 | 判断：谁赢/平手/浪费）',
+    '三、A+ 模块结构对比表（模块数、开篇、屏幕讲解、内部/精度证据、供电续航、场景、FAQ、参数表、竞品对比）',
+    '四、必须处理的风险（①A+ 是否有点名/影射贬低竞品——如"Cheap Alternative""Unstable Data"，会被驳回；②图文矛盾——主图/A+/五点之间供电方式或配件是否打架；③功能夸大）',
+    '五、优化动作 P0/P1/P2（P0=不用重做图立刻改，P1=本周补证据，P2=验证后再做；每条写清改哪里、改成什么）',
+    '六、一句话策略',
+    '',
+    '【重点检查清单】',
+    '- 主图第2张黄金位有没有浪费（重复白底图=浪费）；竞品是否用连续几张图形成"功能→速度→精度"证据链',
+    '- 有没有视频主图；三色警报/彩屏是否讲清每种颜色含义',
+    '- A+ 有没有 FAQ（购买顾虑：为什么开机要等、读数为什么跳、报警怎么办、能否换单位、供电方式）',
+    '- 供电续航有没有量化数字（竞品讲 1500mAh/10h，我方要讲"0 次充电/24×7"）',
+    '- 精度有没有具体参数（±ppm、传感器型号），没有就标"需补数据"，不要编造',
+    '',
+    '【亚马逊标题与商品亮点规则】（涉及 Listing 文案时务必遵守）',
+    '- 商品名称少于 75 字符时，商品亮点字段才显示——标题要 ≤74，不能正好 75',
+    '- 商品亮点是说明特性的短语、不是完整句子，整体 ≤125 字符，且不重复商品名称里已有的信息',
+    '',
+    '【待分析的竞品资料】'
+  ].join('\n');
+
+  function buildVisualPrompt(linksText, notes) {
+    var s = String(linksText || '').trim();
+    if (!s) return '';
+    return VISUAL_PROMPT + '\n' + s + (notes ? '\n\n补充说明：' + notes : '');
+  }
+
   global.CompetitorsEngine = {
     parse: parse, analyze: analyze, tier: tier, tokens: tokens, freqMap: freqMap,
     topWords: topWords, commonWords: commonWords, structCover: structCover, badCats: badCats,
-    buildPrompt: buildPrompt, AI_PROMPT: AI_PROMPT
+    buildPrompt: buildPrompt, AI_PROMPT: AI_PROMPT,
+    buildVisualPrompt: buildVisualPrompt, VISUAL_PROMPT: VISUAL_PROMPT
   };
 })(window);
 
@@ -2090,6 +2131,22 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<textarea data-comp="ai-result" rows="' + (ai ? 4 : 8) + '" placeholder="把 AI 输出的 Markdown 分析整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc(ai) + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-sm" data-comp="save-result">保存分析结果</button>' +
       '<button class="btn btn-sm" data-comp="copy-result">复制结果</button></div></div>';
+
+    /* 竞品链接 / 图片 / A+ 对比 */
+    h += '<div class="card" style="border-left:3px solid var(--blue)"><div class="card-title">竞品链接与图片分析 <span class="tag blue">主图 · A+ · 关键词</span></div>' +
+      '<div class="card-sub">把竞品链接（amazon.com/dp/…）逐行粘贴，生成一份「图片+A+对比」专用提示词，复制给外部 AI（可同时上传主图/A+截图）。分析完把结果粘回下面保存，随 SOP 文档导出。</div>' +
+      '<textarea data-comp="vlinks" rows="3" placeholder="https://www.amazon.com/dp/B0HG4JHBQM&#10;https://www.amazon.com/dp/B0HDX76X7Q" style="width:100%;font-size:12px;margin-top:8px">' + esc((comp && comp.vlinks) || '') + '</textarea>' +
+      '<div class="field" style="margin-top:8px"><label>补充说明（可选，如哪个是自己的链接、产品形态差异）</label>' +
+      '<input type="text" data-comp="vnotes" placeholder="如：第2条是我自己的，插电款；第1条是电池款竞品" value="' + esc((comp && comp.vnotes) || '') + '" style="width:100%"></div>' +
+      '<div class="pill-row" style="margin-top:8px"><button class="btn btn-sm" data-comp="vprompt">生成图片分析提示词</button></div>' +
+      (comp && comp.vpromptText ? '<div class="card-sub" style="margin-top:10px"><b>已生成提示词</b>（复制后粘贴到 AI 工具，可配合上传竞品截图）：</div>' +
+        '<textarea readonly rows="10" data-comp="vprompt-text" style="width:100%;font-family:monospace;font-size:11px;margin-top:6px">' + esc(comp.vpromptText) + '</textarea>' +
+        '<div class="pill-row"><button class="btn btn-sm" data-comp="copy-vprompt">复制提示词</button></div>' : '') +
+      '<div class="divider"></div>' +
+      '<div class="card-sub"><b>图片/A+ 分析结果</b>：把 AI 给出的对比报告整段粘回这里保存。</div>' +
+      '<textarea data-comp="vresult" rows="6" placeholder="把图片与 A+ 对比报告整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.vresult) || '') + '</textarea>' +
+      '<div class="pill-row"><button class="btn btn-sm" data-comp="save-vresult">保存分析</button>' +
+      (comp && comp.vresult ? '<span class="tag green">已保存 · ' + comp.vresult.length + ' 字</span>' : '') + '</div></div>';
 
     if (!r) return h;
     /* 规则数据底稿：默认折叠，外面留概要 */
@@ -4290,8 +4347,10 @@ const CONTENT = {
       toast('提示词已生成，可复制到任意 AI 工具');
       return;
     }
-    if (a === 'copy-prompt' || a === 'copy-template' || a === 'copy-result') {
-      var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]' : (a === 'copy-result' ? '[data-comp="ai-result"]' : '[data-comp="template"]');
+    if (a === 'copy-prompt' || a === 'copy-template' || a === 'copy-result' || a === 'copy-vprompt') {
+      var sel = a === 'copy-prompt' ? '[data-comp="prompt-text"]'
+        : (a === 'copy-vprompt' ? '[data-comp="vprompt-text"]'
+        : (a === 'copy-result' ? '[data-comp="ai-result"]' : '[data-comp="template"]'));
       var t = view.querySelector(sel);
       if (t) fallbackCopy(t);
       return;
@@ -4301,6 +4360,22 @@ const CONTENT = {
       if (!rta || !rta.value.trim()) { toast('先粘贴 AI 分析内容'); return; }
       compSet(function (c) { c.aiText = rta.value; });
       toast('AI 分析已保存到竞品分析，将随 SOP 文档导出');
+      return;
+    }
+    if (a === 'vprompt') {
+      var lta = view.querySelector('[data-comp="vlinks"]');
+      if (!lta || !lta.value.trim()) { toast('先粘贴竞品链接（一行一个）'); return; }
+      var nta = view.querySelector('[data-comp="vnotes"]');
+      var vtext = window.CompetitorsEngine.buildVisualPrompt(lta.value, nta ? nta.value : '');
+      compSet(function (c) { c.vlinks = lta.value; c.vnotes = nta ? nta.value : ''; c.vpromptText = vtext; });
+      toast('图片分析提示词已生成，可复制到 AI 工具');
+      return;
+    }
+    if (a === 'save-vresult') {
+      var vres = view.querySelector('[data-comp="vresult"]');
+      if (!vres || !vres.value.trim()) { toast('先粘贴图片/A+ 分析结果'); return; }
+      compSet(function (c) { c.vresult = vres.value; });
+      toast('图片分析已保存，将随 SOP 文档导出');
       return;
     }
   });
