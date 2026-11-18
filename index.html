@@ -2566,6 +2566,8 @@ const CONTENT = {
           if (s.revenueUsd === undefined && s.revenue !== undefined) s.revenueUsd = s.revenue;
           if (s.profitCny === undefined) s.profitCny = null;
           if (s.adSpendUsd === undefined) s.adSpendUsd = '';
+          /* v4: 来源区分——旧记录一律视为真实数据(报表/hand填)，新记录由写入方标注 estimate/actual */
+          if (s.source !== 'estimate' && s.source !== 'actual') s.source = 'actual';
         });
       }
       d.version = 3;
@@ -2762,7 +2764,14 @@ const CONTENT = {
     const warn = Number(st.acosWarn) || 30;
     const fx = Number(st.fx) || 6.7141;
     const mk = thisMonthKey();
-    const monthRows = DB.sales.filter(function (s) { return monthKey(s.date) === mk; });
+    /* 合并视图：同一天真实数据(actual)覆盖估算(estimate)。目标/统计只看合并后的，估算仅在无真实值时兜底 */
+    const dayMap = {};
+    DB.sales.forEach(function (s) {
+      const prev = dayMap[s.date];
+      if (!prev || (prev.source === 'estimate' && s.source === 'actual')) dayMap[s.date] = s;
+    });
+    const allDays = Object.keys(dayMap).map(function (k) { return dayMap[k]; });
+    const monthRows = allDays.filter(function (s) { return monthKey(s.date) === mk; });
     const byDate = {};
     monthRows.forEach(function (s) { byDate[s.date] = s; });
     const todayKey = today();
@@ -2780,7 +2789,7 @@ const CONTENT = {
     /* 近 14 天真实单均利润 */
     let ord14 = 0, prof14 = 0, rev14 = 0;
     for (let i = 0; i < 14; i++) {
-      const row = DB.sales.filter(function (s) { return s.date === daysAgoKey(i); })[0];
+      const row = allDays.filter(function (s) { return s.date === daysAgoKey(i); })[0];
       if (row) { ord14 += Number(row.orders) || 0; prof14 += profitOf(row); rev14 += Number(row.revenueUsd) || 0; }
     }
     const canEstimate = ord14 > 0;
@@ -2804,7 +2813,7 @@ const CONTENT = {
     /* 广告建议：前 3 天（不含今天）日均花费 + ACOS，稳健型规则 */
     let ad3 = [];
     for (let i = 1; i <= 3; i++) {
-      const row = DB.sales.filter(function (s) { return s.date === daysAgoKey(i); })[0];
+      const row = allDays.filter(function (s) { return s.date === daysAgoKey(i); })[0];
       if (row && row.adSpendUsd !== '' && row.adSpendUsd != null) ad3.push(row);
     }
     const ad3Count = ad3.length;
@@ -2830,6 +2839,10 @@ const CONTENT = {
       aov: aov, profitPerOrder: profitPerOrder, hasToday: !!td, todayOrders: todayOrders,
       todayRevenue: round2(todayRevenue), todayProfit: todayProfit, acos: acos,
       todayNeed: needToday, monthRows: monthRows, todayKey: todayKey,
+      /* 实际数据(报表)只取 source=actual；估算天数用于提示待补 */
+      actualRows: monthRows.filter(function (s) { return s.source !== 'estimate'; }),
+      estimateDays: monthRows.filter(function (s) { return s.source === 'estimate'; }).length,
+      todayIsEstimate: !!(td && td.source === 'estimate'),
       ad3Count: ad3Count, ad3Avg: ad3Avg, ad3Acos: ad3Acos,
       adBudget: adBudget, adAction: adAction, acosTarget: acosTarget
     };
@@ -2848,12 +2861,17 @@ const CONTENT = {
     if (isNaN(orders) || isNaN(revenue) || (profit !== '' && isNaN(profit))) { toast('数字格式不对'); return; }
     const key = today();
     const old = DB.sales.filter(function (s) { return s.date === key; })[0];
-    const payload = { orders: orders, revenueUsd: revenue, profitCny: profit, adSpendUsd: ad, acos: acos };
+    /* 「今天记一笔」是估算：若该日已有报表真实数据(actual)，不覆盖，避免污染实际值 */
+    if (old && old.source === 'actual') {
+      f.saleOrders = ''; f.saleRevenue = ''; f.saleProfit = ''; f.saleAd = ''; f.saleAcos = '';
+      renderAll(); toast('今天已有财务报表真实数据，估算未写入。要改真实值请到核算引擎重新送入'); return;
+    }
+    const payload = { orders: orders, revenueUsd: revenue, profitCny: profit, adSpendUsd: ad, acos: acos, source: 'estimate' };
     if (old) { Object.assign(old, payload); old.updatedAt = Date.now(); }
     else DB.sales.push(Object.assign({ id: uid(), date: key, createdAt: Date.now(), updatedAt: Date.now() }, payload));
     f.saleOrders = ''; f.saleRevenue = ''; f.saleProfit = ''; f.saleAd = ''; f.saleAcos = '';
     save(); renderAll();
-    toast(old ? '今天这笔已更新' : '已记下，今日目标已重算');
+    toast(old ? '今日估算已更新（真实报表数据会覆盖它）' : '已记下估算，今日目标已重算');
   }
   function delSale(date) {
     if (!window.confirm('删除 ' + date + ' 这一天的记录？')) return;
@@ -3674,7 +3692,8 @@ const CONTENT = {
       const row = DB.sales.filter(function (s) { return s.date === d.date; })[0];
       const payload = {
         orders: d.orders, revenueUsd: d.grossUsd, profitCny: d.orderProfitCny,
-        adSpendUsd: (d.adUsd && d.adUsd < 0) ? Math.abs(d.adUsd) : (d.adUsd || ''), acos: ''
+        adSpendUsd: (d.adUsd && d.adUsd < 0) ? Math.abs(d.adUsd) : (d.adUsd || ''), acos: '',
+        source: 'actual', updatedAt: Date.now()
       };
       if (row) { Object.assign(row, payload); updated++; }
       else { DB.sales.push(Object.assign({ id: uid(), date: d.date, createdAt: Date.now(), updatedAt: Date.now() }, payload)); added++; }
@@ -4104,12 +4123,15 @@ const CONTENT = {
       /* ===== 实际数据页：报表核算 + 每日录入 + 图表 + 参考 ===== */
       html += renderCalcPanel();
       html += '<div class="cols"><div class="col">';
-      /* 本月明细 */
-      html += '<div class="card"><div class="card-title">本月每日数据</div>' +
-        '<div class="card-sub">利润为报表核算的真实订单利润，不含月固定费。</div>';
-      if (!s.monthRows.length) html += '<div class="empty">' + esc(CONTENT.EMPTY.data) + '</div>';
+      /* 本月明细：只显示真实数据(报表送入)，估算值不混进来 */
+      html += '<div class="card"><div class="card-title">本月每日数据 <small>仅真实数据</small></div>' +
+        '<div class="card-sub">这里只显示财务报表核算的真实数据（报表核算页「送入每日记录」）。「今天记一笔」填的是估算，用于算每日目标，不会出现在真实数据里。</div>';
+      if (s.estimateDays > 0) {
+        html += '<div class="hint" style="color:var(--amber)">本月有 ' + s.estimateDays + ' 天是估算值（目标计算已用，但未列入真实数据）。每周用财务报表核算后送入，真实值会自动覆盖同日估算。</div>';
+      }
+      if (!s.actualRows.length) html += '<div class="empty">' + esc(CONTENT.EMPTY.data) + '</div>';
       else {
-        const rowsDesc = s.monthRows.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+        const rowsDesc = s.actualRows.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
         html += '<div class="list">';
         rowsDesc.forEach(function (r) {
           const pf = r.profitCny;
@@ -4128,7 +4150,7 @@ const CONTENT = {
       html += '</div><div class="col">';
 
       /* 本月销售额柱状 */
-      html += '<div class="card"><div class="card-title">本月每日销售额 $</div>' + dataBars(s.monthRows) + '</div>';
+      html += '<div class="card"><div class="card-title">本月每日销售额 $ <small>真实数据</small></div>' + dataBars(s.actualRows) + '</div>';
 
       /* 参考数字 */
       html += '<div class="card"><div class="card-title">参考数字</div>' +
@@ -4183,15 +4205,15 @@ const CONTENT = {
     html += '</div>';
 
     html += metrics([
-      { label: '今日订单利润', value: '¥' + s.todayProfit, small: s.hasToday ? s.todayOrders + ' 单' : '未记' },
+      { label: '今日订单利润', value: '¥' + s.todayProfit, small: s.hasToday ? s.todayOrders + ' 单' + (s.todayIsEstimate ? ' · 估算' : '') : '未记' },
       { label: '本月真实到手', value: '¥' + s.realProfit, small: '已扣固定成本 ¥' + s.fixed },
-      { label: '本月已记', value: s.logDays + ' 天', small: '真实利润口径' }
+      { label: '本月已记', value: s.logDays + ' 天', small: s.estimateDays ? '含 ' + s.estimateDays + ' 天估算' : '真实利润口径' }
     ]);
 
     html += '<div class="cols"><div class="col">';
-    /* 今天记一笔 */
-    html += '<div class="card"><div class="card-title">今天记一笔</div>' +
-      '<div class="card-sub">订单数 / 销售额$ / 订单利润¥ 三项为主，广告花费$ 与 ACOS 选填。利润从报表核算的真实值填，不再按百分比估。同一天再填会覆盖。</div>' +
+    /* 今天记一笔（估算） */
+    html += '<div class="card"><div class="card-title">今天记一笔 <small>估算 · 仅用于算目标</small></div>' +
+      '<div class="card-sub">这里填的是<b>当天估算值</b>，只用来算每日目标，不会进「本月每日数据」的真实数据。真实数据每周从财务报表核算后送入；有真实值的那天，估算自动让位。同一天再填会覆盖估算。</div>' +
       '<div class="sale-grid">' +
       '<div class="field"><label>订单数</label><input type="number" min="0" step="1" data-model="saleOrders" placeholder="0" value="' + esc(f.saleOrders) + '"></div>' +
       '<div class="field"><label>销售额 $</label><input type="number" min="0" step="any" data-model="saleRevenue" placeholder="0" value="' + esc(f.saleRevenue) + '"></div>' +
