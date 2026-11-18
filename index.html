@@ -596,10 +596,14 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     var bySku = Object.keys(skuAgg).sort().map(function (sku) {
       var a = skuAgg[sku], c = costs.map[sku];
       var profit = r2(a.settleUsd * fx - a.costCny - a.freightCny);
+      var revenueCny = a.settleUsd * fx;
       return {
         sku: sku, units: a.units, settleUsd: r2(a.settleUsd),
         unitCost: c.unit, airFreight: c.air, costCny: r2(a.costCny), freightCny: r2(a.freightCny),
-        profitCny: profit, profitPerUnit: a.units ? r2(profit / a.units) : null
+        profitCny: profit, profitPerUnit: a.units ? r2(profit / a.units) : null,
+        /* 毛利润=结算×汇率−采购−空运头程；毛利率=毛利润/结算收入(人民币) */
+        revenueCny: r2(revenueCny),
+        marginPct: revenueCny > 0 ? r2(profit / revenueCny * 100) : null
       };
     });
     var summary = {
@@ -3333,6 +3337,27 @@ const CONTENT = {
           { label: '非订单费', value: fmtMoney(s.otherUsd) },
           { label: '全口径到手', value: '¥' + Math.round(s.profitCny).toLocaleString('zh-CN') }
         ]);
+      /* 各 SKU 毛利润与毛利率（毛利润=结算×汇率−采购−头程，不含非订单费/广告） */
+      const allSku = (p.bySku || []).slice().sort(function (a, b) { return (b.profitCny || 0) - (a.profitCny || 0); });
+      if (allSku.length) {
+        const fmtCny = function (n) { return '¥' + Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+        h += '<div class="card" style="margin-top:12px"><div class="card-title">各 SKU 毛利润 <small>毛利润=结算×汇率−采购−头程 · 未扣广告与非订单费</small></div>' +
+          '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' +
+          '<th>SKU</th><th>件数</th><th>结算$</th><th>收入¥</th><th>采购¥</th><th>头程¥</th><th>毛利润¥</th><th>毛利率</th>' +
+          '</tr></thead><tbody>';
+        allSku.forEach(function (r) {
+          const revenue = r.revenueCny != null ? r.revenueCny : (r.settleUsd * s.fx);
+          const mp = r.marginPct != null ? r.marginPct : (revenue > 0 ? Math.round(r.profitCny / revenue * 1000) / 10 : null);
+          const profit = r.profitCny;
+          h += '<tr><td class="mono">' + esc(r.sku) + '</td>' +
+            '<td>' + r.units + '</td><td>' + fmtMoney(r.settleUsd) + '</td>' +
+            '<td>' + fmtCny(revenue) + '</td>' +
+            '<td>' + fmtCny(r.costCny) + '</td><td>' + fmtCny(r.freightCny) + '</td>' +
+            '<td><b style="color:' + (profit > 0 ? 'var(--green)' : 'var(--red, #d64545)') + '">' + (profit > 0 ? '+' : '') + '¥' + Math.round(profit).toLocaleString('zh-CN') + '</b></td>' +
+            '<td><span class="tag ' + (mp != null && mp > 0 ? (mp >= 20 ? 'green' : 'gray') : 'gray') + '">' + (mp == null ? '—' : mp + '%') + '</span></td></tr>';
+        });
+        h += '</tbody></table></div></div>';
+      }
       /* 按项目看：活跃项目绑定 SKU 的单件真实利润 */
       const actives = sopLoad().projects.filter(function (x) { return x.status !== 'archived' && x.sku; });
       const skuRows = (p.bySku || []);
