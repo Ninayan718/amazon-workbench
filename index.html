@@ -123,6 +123,22 @@ button:disabled{cursor:default;opacity:.6}
 .report-section{margin-bottom:14px}
 .report-section h3{font-size:13px;font-weight:500;margin:0 0 8px}
 .report-pre{white-space:pre-wrap;word-break:break-word;background:var(--surface);border:0.5px solid var(--line);border-radius:var(--r);padding:14px;font-family:var(--font);font-size:12px;line-height:1.8;margin:0;color:var(--text)}
+
+/* Markdown 渲染（AI 结果预览） */
+.md-report{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:12px;line-height:1.7;color:var(--text);max-height:520px;overflow:auto;margin-top:6px}
+.md-p{margin:5px 0}
+.md-h{margin:12px 0 6px;font-size:14px;font-weight:700;color:var(--green)}
+.md-h:first-child{margin-top:2px}
+.md-report ul{margin:4px 0 4px 18px;padding:0}
+.md-report li{margin:3px 0}
+.md-report code{background:var(--neutral);padding:1px 4px;border-radius:3px;font-family:ui-monospace,monospace}
+.md-quote{margin:6px 0;padding:6px 10px;border-left:3px solid var(--green-mid);background:var(--green-bg);color:var(--text2)}
+.md-table-wrap{width:100%;overflow-x:auto;margin:8px 0;border:0.5px solid var(--line);border-radius:6px}
+.md-table{width:100%;border-collapse:collapse;font-size:11.5px;min-width:380px}
+.md-table th{background:var(--neutral);font-weight:700;text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--text)}
+.md-table td{padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+.md-table tr:last-child td{border-bottom:0}
+.md-table tbody tr:nth-child(even){background:rgba(0,0,0,.02)}
 .report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .collapse{border-top:0.5px solid var(--line);margin-top:16px;padding-top:12px}
 .collapse-head{display:flex;align-items:center;gap:8px;border:none;background:transparent;padding:0;font-size:12px;color:var(--text-2);width:100%;text-align:left}
@@ -2003,6 +2019,64 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  /* 轻量 Markdown 渲染：重点把表格转成真 <table>，兼标题/列表/粗体/引用，用于 AI 结果预览 */
+  function mdInline(s) {
+    return s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+  function isTableSep(line) {
+    return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
+  }
+  function splitRow(line) {
+    var t = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+    return t.split('|').map(function (x) { return x.trim(); });
+  }
+  function mdRender(text) {
+    if (!text || !String(text).trim()) return '';
+    /* 先转义防 XSS，再解析 Markdown（转义后 | - # * 等标记仍保留） */
+    var lines = esc(text).replace(/\r/g, '').split('\n');
+    var out = [], i = 0;
+    function flushList(buf) {
+      if (!buf.length) return;
+      out.push('<ul>' + buf.map(function (x) { return '<li>' + mdInline(x) + '</li>'; }).join('') + '</ul>');
+    }
+    while (i < lines.length) {
+      var line = lines[i];
+      /* 表格块：当前行是表头且下一行是分隔行 */
+      if (line.indexOf('|') >= 0 && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+        var head = splitRow(line);
+        i += 2;
+        var body = [];
+        while (i < lines.length && lines[i].indexOf('|') >= 0 && lines[i].trim() !== '') {
+          body.push(splitRow(lines[i])); i++;
+        }
+        var tbl = '<div class="md-table-wrap"><table class="md-table"><thead><tr>' +
+          head.map(function (h) { return '<th>' + mdInline(h) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        body.forEach(function (r) {
+          tbl += '<tr>' + head.map(function (_, c) { return '<td>' + mdInline(r[c] || '') + '</td>'; }).join('') + '</tr>';
+        });
+        out.push(tbl + '</tbody></table></div>');
+        continue;
+      }
+      /* 标题 */
+      var hm = line.match(/^(#{1,4})\s+(.*)$/);
+      if (hm) { out.push('<h' + hm[1].length + ' class="md-h">' + mdInline(hm[2]) + '</h' + hm[1].length + '>'); i++; continue; }
+      /* 列表（连续 - / * 行） */
+      if (/^\s*[-*]\s+/.test(line)) {
+        var buf = [];
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+          buf.push(lines[i].replace(/^\s*[-*]\s+/, '')); i++;
+        }
+        flushList(buf); continue;
+      }
+      /* 引用（esc 后 > 变成 &gt;） */
+      if (/^\s*(?:>|&gt;)\s?/.test(line)) { out.push('<blockquote class="md-quote">' + mdInline(line.replace(/^\s*(?:>|&gt;)\s?/, '')) + '</blockquote>'); i++; continue; }
+      /* 空行跳过，其余当段落 */
+      if (!line.trim()) { i++; continue; }
+      out.push('<p class="md-p">' + mdInline(line) + '</p>'); i++;
+    }
+    return out.join('');
+  }
   function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function yuan(n) { return '¥' + Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function val(v) { return v === null || v === undefined ? '—' : String(v); }
@@ -2164,7 +2238,7 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
     /* AI 分析结果：置顶优先展示 + 可粘贴/复制 */
     h += '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">AI 分析结果 <span class="tag ' + (ai ? 'green' : 'gray') + '">' + (ai ? ai.length + ' 字' : '待粘贴') + '</span></div>' +
       '<div class="card-sub">外部 AI（豆包/DeepSeek/ChatGPT）给出的六块分析，整段粘贴到下面点「保存」就会留在这里，并随 SOP 文档导出。也可用上面「AI 深度分析（需key）」站内直接生成。</div>' +
-      (ai ? '<pre class="report-pre" style="white-space:pre-wrap;max-height:520px;overflow:auto">' + esc(ai) + '</pre>' : '') +
+      (ai ? '<div class="md-report">' + mdRender(ai) + '</div>' : '') +
       '<textarea data-comp="ai-result" rows="' + (ai ? 4 : 8) + '" placeholder="把 AI 输出的 Markdown 分析整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc(ai) + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-sm" data-comp="save-result">保存分析结果</button>' +
       '<button class="btn btn-sm" data-comp="copy-result">复制结果</button></div></div>';
@@ -2183,7 +2257,8 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<div class="card-sub"><b>图片/A+ 分析结果</b>：把 AI 给出的对比报告整段粘回这里保存。</div>' +
       '<textarea data-comp="vresult" rows="6" placeholder="把图片与 A+ 对比报告整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.vresult) || '') + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-sm" data-comp="save-vresult">保存分析</button>' +
-      (comp && comp.vresult ? '<span class="tag green">已保存 · ' + comp.vresult.length + ' 字</span>' : '') + '</div></div>';
+      (comp && comp.vresult ? '<span class="tag green">已保存 · ' + comp.vresult.length + ' 字</span>' : '') + '</div>' +
+      (comp && comp.vresult ? '<div class="card-sub" style="margin-top:10px"><b>预览</b>（表格已渲染）：</div><div class="md-report">' + mdRender(comp.vresult) + '</div>' : '') + '</div>';
 
     /* 竞品流量表（关键词对比）分析 */
     h += '<div class="card" style="border-left:3px solid var(--amber)"><div class="card-title">竞品流量表分析 <span class="tag amber">关键词 · 流量份额</span></div>' +
@@ -2201,7 +2276,8 @@ textarea[data-clip]{background:var(--neutral);border:0.5px solid var(--line);bor
       '<div class="card-sub"><b>流量表分析结果</b>：把 AI 给出的分析整段粘回这里保存。</div>' +
       '<textarea data-comp="tresult" rows="6" placeholder="把关键词/流量分析结果整段粘贴到这里…" style="width:100%;font-size:12px;margin-top:6px">' + esc((comp && comp.tresult) || '') + '</textarea>' +
       '<div class="pill-row"><button class="btn btn-sm" data-comp="save-tresult">保存分析</button>' +
-      (comp && comp.tresult ? '<span class="tag green">已保存 · ' + comp.tresult.length + ' 字</span>' : '') + '</div></div>';
+      (comp && comp.tresult ? '<span class="tag green">已保存 · ' + comp.tresult.length + ' 字</span>' : '') + '</div>' +
+      (comp && comp.tresult ? '<div class="card-sub" style="margin-top:10px"><b>预览</b>（表格已渲染）：</div><div class="md-report">' + mdRender(comp.tresult) + '</div>' : '') + '</div>';
 
     if (!r) return h;
     /* 规则数据底稿：默认折叠，外面留概要 */
