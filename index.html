@@ -3795,15 +3795,20 @@ const CONTENT = {
   }
 
   /* ---------- 页面：经营 ---------- */
-  /* ---- 每日待办：repeat=每天复用，单次=仅创建当天；done 按日期记录 ---- */
-  function todayTodoList() {
-    var td = today();
-    return (DB.todos || []).filter(function (t) {
-      return t.repeat || dkey(t.createdAt) === td;
+  /* ---- 待办：repeat=每天重勾；单次=勾过即完成(可取消)。所有待办常驻清单，不因过天消失 ---- */
+  function todoDone(t) {
+    if (t.repeat) return !!t.done[today()];                       // 每天项：今天勾了才算完成
+    return Object.keys(t.done || {}).some(function (k) { return !!t.done[k]; }); // 单次项：任意一天勾过即完成
+  }
+  function todoList() {
+    return (DB.todos || []).slice().sort(function (a, b) {
+      var da = todoDone(a) ? 1 : 0, db = todoDone(b) ? 1 : 0;
+      if (da !== db) return da - db;                              // 未完成在前，已完成沉底
+      return (a.createdAt || 0) - (b.createdAt || 0);             // 同类按创建时间
     });
   }
   function todoStats() {
-    var list = todayTodoList(), doneN = list.filter(function (t) { return !!t.done[today()]; }).length;
+    var list = todoList(), doneN = list.filter(todoDone).length;
     /* 近 7 天完成率：每天看那天应做的（repeat 全部 + 当天创建的单次） */
     var days = [];
     for (var i = 6; i >= 0; i--) {
@@ -3816,10 +3821,10 @@ const CONTENT = {
     return { total: list.length, done: doneN, pct: list.length ? Math.round(doneN / list.length * 100) : 0, days: days };
   }
   function renderTodoCard() {
-    var list = todayTodoList(), st = todoStats();
-    var h = '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">今日待办 <small>' +
+    var list = todoList(), st = todoStats();
+    var h = '<div class="card" style="border-left:3px solid var(--green)"><div class="card-title">待办清单 <small>' +
       st.done + ' / ' + st.total + ' 完成' + (st.total ? ' · ' + st.pct + '%' : '') + '</small></div>' +
-      '<div class="card-sub">每天复用项天天出现；单次项只在添加当天显示。勾选完成会记进近 7 天完成率。</div>';
+      '<div class="card-sub">所有待办都会留着，不会因过天消失。未完成的排前面、完成的沉底；「每天」项每天要重勾，单次项勾过即完成（可再点取消）。</div>';
     /* 新增输入：一行一条，可一次粘多条 */
     h += '<div class="card-sub" style="margin-top:10px;margin-bottom:4px">一次可写多条，<b>一行一条</b>，换行自动分开。</div>' +
       '<textarea class="input" data-model="todoText" rows="3" placeholder="看一遍广告搜索词报告&#10;记今日利润&#10;回复买家消息" style="width:100%;resize:vertical;font-size:12px"></textarea>' +
@@ -3829,10 +3834,11 @@ const CONTENT = {
     else {
       h += '<div class="list">';
       list.forEach(function (t) {
-        var isDone = !!t.done[today()];
+        var isDone = todoDone(t);
+        var isOldSingle = !t.repeat && dkey(t.createdAt) !== today();
         h += '<div class="row"><label class="checkbox" style="margin:0"><input type="checkbox" data-act="todo-toggle" data-id="' + esc(t.id) + '"' + (isDone ? ' checked' : '') + '></label>' +
           '<span class="row-text term-row" style="' + (isDone ? 'text-decoration:line-through;opacity:.6' : '') + '">' + esc(t.text) +
-          '<br><span class="mins">' + (t.repeat ? '每天' : '单次 · ' + esc(dkey(t.createdAt).slice(5))) + '</span></span>' +
+          '<br><span class="mins">' + (t.repeat ? '每天' : '单次 · ' + esc(dkey(t.createdAt).slice(5)) + (isOldSingle ? ' · 遗留' : '')) + '</span></span>' +
           '<button class="btn btn-sm" data-act="todo-del" data-id="' + esc(t.id) + '">删</button></div>';
       });
       h += '</div>';
@@ -4653,7 +4659,16 @@ const CONTENT = {
       }
       case 'todo-toggle': {
         var t = (DB.todos || []).filter(function (x) { return x.id === el.dataset.id; })[0];
-        if (t) { var k = today(); t.done[k] = !t.done[k]; save(); renderAll(); }
+        if (t) {
+          if (t.repeat) {
+            var k = today(); t.done[k] = !t.done[k];       // 每天项：按当天切换
+          } else if (todoDone(t)) {
+            t.done = {};                                  // 单次项取消完成：清掉所有完成记录
+          } else {
+            t.done[today()] = true;                       // 单次项完成
+          }
+          save(); renderAll();
+        }
         break;
       }
       case 'todo-del': {
