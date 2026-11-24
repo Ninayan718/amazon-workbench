@@ -3829,20 +3829,34 @@ const CONTENT = {
       const allSku = (p.bySku || []).slice().sort(function (a, b) { return (b.profitCny || 0) - (a.profitCny || 0); });
       if (allSku.length) {
         const fmtCny = function (n) { return '¥' + Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
-        h += '<div class="card" style="margin-top:12px"><div class="card-title">各 SKU 毛利润 <small>毛利润=结算×汇率−采购−头程 · 未扣广告与非订单费</small></div>' +
+        const adi = adSkuIndex();
+        const norm = function (v) { return String(v == null ? '' : v).trim().toUpperCase(); };
+        const adSrc = adi.week ? ('广告列取自商品推广报告 ' + esc(adi.week) + (adi.range ? '（' + esc(adi.range) + '）' : '') + ' · 按 SKU 精确匹配') : '尚无商品推广报告 · 广告列显示「—」';
+        h += '<div class="card" style="margin-top:12px"><div class="card-title">各 SKU 毛利润 <small>毛利润=结算×汇率−采购−头程 · 未扣广告与非订单费；广告列为另一口径</small></div>' +
+          '<div class="card-sub">' + adSrc + '。要到「广告 → 商品推广报告」上传归档后才会带出。</div>' +
           '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' +
           '<th>SKU</th><th>件数</th><th>结算$</th><th>收入¥</th><th>采购¥</th><th>头程¥</th><th>毛利润¥</th><th>毛利率</th>' +
+          '<th>广告花费$</th><th>广告销售$</th><th>广告单</th><th>ACOS</th>' +
           '</tr></thead><tbody>';
         allSku.forEach(function (r) {
           const revenue = r.revenueCny != null ? r.revenueCny : (r.settleUsd * s.fx);
           const mp = r.marginPct != null ? r.marginPct : (revenue > 0 ? Math.round(r.profitCny / revenue * 1000) / 10 : null);
           const profit = r.profitCny;
+          /* 广告数据：SKU 精确匹配优先，ASIN 兜底；都没有就是无（不模糊猜） */
+          const ad = adi.byKey[norm(r.sku)] || adi.byAsin[norm(r.asin)] || null;
+          const adCell = ad ? ad.spend.toFixed(2) : '—';
+          const adSales = ad ? ad.sales.toFixed(2) : '—';
+          const adOrd = ad ? ad.orders : '—';
+          const acosTxt = ad ? (ad.acosInf ? '零销售' : (ad.acos === null ? '—' : ad.acos + '%')) : '—';
+          const acosCls = ad && !ad.acosInf && ad.acos !== null && ad.acos <= 40 ? 'green' : 'gray';
           h += '<tr><td class="mono">' + esc(r.sku) + '</td>' +
             '<td>' + r.units + '</td><td>' + fmtMoney(r.settleUsd) + '</td>' +
             '<td>' + fmtCny(revenue) + '</td>' +
             '<td>' + fmtCny(r.costCny) + '</td><td>' + fmtCny(r.freightCny) + '</td>' +
             '<td><b style="color:' + (profit > 0 ? 'var(--green)' : 'var(--red, #d64545)') + '">' + (profit > 0 ? '+' : '') + '¥' + Math.round(profit).toLocaleString('zh-CN') + '</b></td>' +
-            '<td><span class="tag ' + (mp != null && mp > 0 ? (mp >= 20 ? 'green' : 'gray') : 'gray') + '">' + (mp == null ? '—' : mp + '%') + '</span></td></tr>';
+            '<td><span class="tag ' + (mp != null && mp > 0 ? (mp >= 20 ? 'green' : 'gray') : 'gray') + '">' + (mp == null ? '—' : mp + '%') + '</span></td>' +
+            '<td>' + adCell + '</td><td>' + adSales + '</td><td>' + adOrd + '</td>' +
+            '<td><span class="tag ' + acosCls + '">' + acosTxt + '</span></td></tr>';
         });
         h += '</tbody></table></div></div>';
       }
@@ -4216,6 +4230,21 @@ const CONTENT = {
   }
 
   /* ---------- 页面：数据与目标 ---------- */
+  /* 最新一期商品推广报告的按 SKU 索引（用于 SKU 毛利表带出广告数据）。
+     只做精确归一化匹配（去空格+大写），匹配不到返回空——不猜、不模糊匹配，避免张冠李戴。 */
+  function adSkuIndex() {
+    var latest = prodLatest();
+    var res = { week: latest ? latest.week : '', range: latest ? (latest.dateRange || '') : '', byKey: {}, byAsin: {} };
+    if (!latest || !latest.skus || !latest.skus.length) return res;
+    var normKey = function (v) { return String(v == null ? '' : v).trim().toUpperCase(); };
+    latest.skus.forEach(function (a) {
+      var k = normKey(a.sku || a.id);
+      if (k) res.byKey[k] = a;
+      var ak = normKey(a.asin);
+      if (ak) res.byAsin[ak] = a;
+    });
+    return res;
+  }
   function renderData() {
     const s = salesState(), f = UI.form, st = DB.settings;
     const isGoal = UI.dataSub === 'goal';
